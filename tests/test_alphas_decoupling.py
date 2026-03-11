@@ -39,9 +39,7 @@ def test_all2alh_vs_crundec(loops):
     ]
     result = AlL2AlH(0.35, 2.0, decpar, 100.0, loops)
     ref = _ref_all2alh(0.35, 2.0, 100.0, loops)
-    assert rel_err(result, ref) < 1e-8, (
-        f"loops={loops}: got {result:.12e}, ref {ref:.12e}"
-    )
+    assert rel_err(result, ref) < 1e-8, f"loops={loops}: got {result:.12e}, ref {ref:.12e}"
 
 
 def _ref_alh2all(alphas_high: float, mu1: float, mu2: float, loops: int) -> float:
@@ -61,9 +59,7 @@ def test_alh2all_vs_crundec(loops):
     decpar = [Decoupling(nf=4, Mth=1.5, muth=1.5)]
     result = AlH2AlL(0.3, 5.0, decpar, 2.0, loops)
     ref = _ref_alh2all(0.3, 5.0, 2.0, loops)
-    assert rel_err(result, ref) < 1e-8, (
-        f"loops={loops}: got {result:.12e}, ref {ref:.12e}"
-    )
+    assert rel_err(result, ref) < 1e-8, f"loops={loops}: got {result:.12e}, ref {ref:.12e}"
 
 
 def test_invalid_loops():

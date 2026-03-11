@@ -10,7 +10,7 @@ import pytest
 from rundex import mOS2mSI
 
 # Physical parameters (bottom quark)
-M_OS = 4.78   # on-shell mass [GeV]
+M_OS = 4.78  # on-shell mass [GeV]
 ASM = 0.2160  # αs(M_OS)
 NF = 5
 

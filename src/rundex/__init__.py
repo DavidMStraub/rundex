@@ -21,9 +21,9 @@ from ._masses import (
     DecMqUpOS,
     mH2mL,
     mL2mH,
+    mMS2m1S,
     mMS2mMS,
     mMS2mOS,
-    mMS2m1S,
     mOS2mMS,
     mOS2mSI,
 )

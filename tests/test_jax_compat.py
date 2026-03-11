@@ -2,9 +2,8 @@
 JAX jittability and gradability checks for public API functions.
 """
 
-import pytest
 import jax
-import jax.numpy as jnp
+import pytest
 
 from rundex import (
     AlH2AlL,
@@ -24,7 +23,6 @@ from rundex import (
     mOS2mMS,
     mOS2mSI,
 )
-
 
 DECPAR = [
     Decoupling(nf=6, Mth=173.0, muth=173.0),
@@ -64,12 +62,10 @@ def test_LamExpl_jit(loops):
     _ = _jit_and_grad(f, 0.118)
 
 
-
 @pytest.mark.parametrize("loops", [1, 2, 3, 4, 5])
 def test_AlphasLam_jit(loops):
     f = lambda lam: AlphasLam(lam, 91.18, 5, loops)
     _ = _jit_and_grad(f, 0.2086)
-
 
 
 @pytest.mark.parametrize("loops", [1, 2, 3, 4, 5])
@@ -90,19 +86,16 @@ def test_AlH2AlL_jit(loops):
     _ = _jit_and_grad(f, 0.09)
 
 
-
 @pytest.mark.parametrize("loops", [0, 1, 2, 3, 4])
 def test_mMS2mOS_jit(loops):
     f = lambda m: mMS2mOS(m, mq=None, alphas=0.223, mu=4.18, nf=5, loops=loops)
     _ = _jit_and_grad(f, 4.18)
 
 
-
 @pytest.mark.parametrize("loops", [0, 1, 2, 3, 4])
 def test_mOS2mMS_jit(loops):
     f = lambda m: mOS2mMS(m, mq=None, alphas=0.223, mu=4.18, nf=5, loops=loops)
     _ = _jit_and_grad(f, 4.18)
-
 
 
 @pytest.mark.parametrize("loops", [0, 1, 2, 3, 4])

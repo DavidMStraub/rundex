@@ -41,9 +41,9 @@ import argparse
 import os
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Optional
 
 import jax
 import jax.numpy as jnp
@@ -88,7 +88,7 @@ except Exception as _exc:
     print(f"[warn] python-rundec not available: {_exc}", file=sys.stderr)
 
 
-def _make_decpar(entries: list) -> "_crd.TriplenfMmuArray":  # type: ignore[name-defined]
+def _make_decpar(entries: list) -> _crd.TriplenfMmuArray:  # type: ignore[name-defined]
     """Build a TriplenfMmuArray(4) from a list of Decoupling objects.
 
     CRunDec's threshold functions expect a fixed-size C array of length 4,
@@ -192,13 +192,13 @@ class Spec:
     rdx_fn: Callable[[jnp.ndarray], jnp.ndarray]
     rdx_x0: jnp.ndarray
     # No-arg callable → Python float (CRunDec).  None = not benchmarked.
-    crd_fn: Optional[Callable[[], float]] = None
+    crd_fn: Callable[[], float] | None = None
 
 
 def _build_specs(loops: int) -> list[Spec]:
     c = _c5  # CRunDec(5) object, or None
 
-    def _crd(fn: Callable) -> Optional[Callable]:
+    def _crd(fn: Callable) -> Callable | None:
         """Wrap a CRunDec call; return None if CRunDec is unavailable."""
         if not HAS_CRUNDEC:
             return None
@@ -367,7 +367,7 @@ def main() -> None:
 
     for sp in specs:
         # ── CRunDec ──────────────────────────────────────────────────────────
-        crd_s: Optional[float] = None
+        crd_s: float | None = None
         if sp.crd_fn is not None:
             try:
                 crd_s, _ = _timeit(sp.crd_fn, args.reps, args.budget)

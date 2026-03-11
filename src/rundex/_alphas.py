@@ -25,19 +25,20 @@ Conventions
   are declared static.
 """
 
-from dataclasses import dataclass
+from collections.abc import Iterable, Mapping, Sequence
 from collections.abc import Iterable as IterableABC
-from typing import Iterable, Mapping, Sequence, Any, cast
+from dataclasses import dataclass
+from typing import Any, cast
 
 import jax
 import jax.numpy as jnp
 from diffrax import (
+    Dopri5,
     ODETerm,
     PIDController,
-    SaveAt,
-    Dopri5,
     diffeqsolve,
 )
+
 from ._coeffs import beta0, beta1, beta2, beta3, beta4
 
 # Minimum μ/Λ ratio before a warning is printed (matches Mathematica default)
@@ -80,7 +81,7 @@ def _normalize_decpar(decpar: Iterable[object]) -> list[Decoupling]:
         else:
             nf = getattr(item, "nf", None)
             if nf is not None:
-                dec = Decoupling(int(nf), float(getattr(item, "Mth")), float(getattr(item, "muth")))
+                dec = Decoupling(int(nf), float(item.Mth), float(item.muth))
             else:
                 if not isinstance(item, IterableABC):
                     raise ValueError("decpar entries must be iterable (nf, Mth, muth)")
@@ -129,14 +130,17 @@ def _fas5to6os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
         - (340853.0 * _LOG2**5) / 1360800.0
         + (3179149.0 * _A4) / 54432.0
         + (340853.0 * _A5) / 11340.0
-        + lmM * (
+        + lmM
+        * (
             -19696909.0 / 746496.0
             - (29.0 * _ZETA2) / 9.0
             - (29.0 * _LOG2 * _ZETA2) / 27.0
             + (59.0 * _ZETA3) / 108.0
             - (2529743.0 * _ZETA3) / 165888.0
         )
-        + nlq * nlq * (
+        + nlq
+        * nlq
+        * (
             -140825.0 / 1492992.0
             - (493.0 * lmM * lmM) / 20736.0
             - (13.0 * _PI * _PI) / 972.0
@@ -145,7 +149,8 @@ def _fas5to6os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
         )
         - (2428169183.0 * _ZETA3) / 87091200.0
         + (1439.0 * _PI * _PI * _ZETA3) / 1296.0
-        + nlq * (
+        + nlq
+        * (
             1773073.0 / 746496.0
             + (6661.0 * lmM * lmM) / 10368.0
             + (107.0 * lmM * lmM * lmM) / 1728.0
@@ -157,7 +162,8 @@ def _fas5to6os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
             + (173.0 * _LOG2**4) / 124416.0
             + (173.0 * _A4) / 5184.0
             + (4756441.0 * _ZETA3) / 995328.0
-            + lmM * (
+            + lmM
+            * (
                 1110443.0 / 373248.0
                 + (41.0 * _ZETA2) / 54.0
                 + (2.0 * _LOG2 * _ZETA2) / 27.0
@@ -210,7 +216,9 @@ def _fas6to5os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
         + (340853.0 * _LOG2**5) / 1360800.0
         - (3179149.0 * _A4) / 54432.0
         - (340853.0 * _A5) / 11340.0
-        + nlq * nlq * (
+        + nlq
+        * nlq
+        * (
             140825.0 / 1492992.0
             + (493.0 * lmM * lmM) / 20736.0
             + (13.0 * _PI * _PI) / 972.0
@@ -219,14 +227,16 @@ def _fas6to5os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
         )
         + (2428169183.0 * _ZETA3) / 87091200.0
         - (1439.0 * _PI * _PI * _ZETA3) / 1296.0
-        + lmM * (
+        + lmM
+        * (
             21084715.0 / 746496.0
             + (35.0 * _ZETA2) / 9.0
             + (35.0 * _LOG2 * _ZETA2) / 27.0
             - (65.0 * _ZETA3) / 108.0
             + (3022001.0 * _ZETA3) / 165888.0
         )
-        + nlq * (
+        + nlq
+        * (
             -1773073.0 / 746496.0
             - (9115.0 * lmM * lmM) / 10368.0
             - (107.0 * lmM * lmM * lmM) / 1728.0
@@ -237,7 +247,8 @@ def _fas6to5os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
             + (1709.0 * _PI * _PI * _LOG2 * _LOG2) / 124416.0
             - (173.0 * _LOG2**4) / 124416.0
             - (173.0 * _A4) / 5184.0
-            + lmM * (
+            + lmM
+            * (
                 -1140191.0 / 373248.0
                 - (47.0 * _ZETA2) / 54.0
                 - (2.0 * _LOG2 * _ZETA2) / 27.0
@@ -273,8 +284,10 @@ def DecAsUpOS(alphas: float, massth: float, muth: float, nf: int, loops: int) ->
 # Helpers: αs/π as a function of L = log(μ²/Λ²)   [the setasL series]
 # ---------------------------------------------------------------------------
 
-def _api_from_L(L: jax.Array, b0: float, b1: float, b2: float,
-                b3: float, b4: float, loops: int) -> jax.Array:
+
+def _api_from_L(
+    L: jax.Array, b0: float, b1: float, b2: float, b3: float, b4: float, loops: int
+) -> jax.Array:
     """
     Evaluate the loop-expansion of αs/π = f(L) where L = log(μ²/Λ²).
 
@@ -308,9 +321,7 @@ def _api_from_L(L: jax.Array, b0: float, b1: float, b2: float,
         + 5 * b2**2 / (3 * b0**7)
         - b1 * b3 * (2 * logL + 1 / 6) / b0**7
         + 3 * b1**2 * b2 * (2 * logL**2 - logL - 1) / b0**8
-        + b1**4 * (
-            logL**4 - 13 / 3 * logL**3 - 3 / 2 * logL**2 + 4 * logL + 7 / 6
-        ) / b0**9
+        + b1**4 * (logL**4 - 13 / 3 * logL**3 - 3 / 2 * logL**2 + 4 * logL + 7 / 6) / b0**9
     ) / L**5
     return result
 
@@ -318,6 +329,7 @@ def _api_from_L(L: jax.Array, b0: float, b1: float, b2: float,
 # ---------------------------------------------------------------------------
 # LamExpl
 # ---------------------------------------------------------------------------
+
 
 def LamExpl(alphas: float, mu: float, nf: int, loops: int) -> jax.Array:
     """
@@ -371,16 +383,14 @@ def LamExpl(alphas: float, mu: float, nf: int, loops: int) -> jax.Array:
         lamomu += api * (b1**2 - b0 * b2) / (2.0 * b0**3)
 
     if loops >= 4:
-        lamomu += -api**2 * (b1**3 - 2 * b0 * b1 * b2 + b0**2 * b3) / (4.0 * b0**4)
+        lamomu += -(api**2) * (b1**3 - 2 * b0 * b1 * b2 + b0**2 * b3) / (4.0 * b0**4)
 
     if loops >= 5:
-        lamomu += api**3 * (
-            b1**4
-            - 3 * b0 * b1**2 * b2
-            + b0**2 * b2**2
-            + 2 * b0**2 * b1 * b3
-            - b0**3 * b4
-        ) / (6.0 * b0**5)
+        lamomu += (
+            api**3
+            * (b1**4 - 3 * b0 * b1**2 * b2 + b0**2 * b2**2 + 2 * b0**2 * b1 * b3 - b0**3 * b4)
+            / (6.0 * b0**5)
+        )
 
     return mu * jnp.exp(lamomu)
 
@@ -388,6 +398,7 @@ def LamExpl(alphas: float, mu: float, nf: int, loops: int) -> jax.Array:
 # ---------------------------------------------------------------------------
 # LamImpl
 # ---------------------------------------------------------------------------
+
 
 def LamImpl(alphas: float, mu: float, nf: int, loops: int) -> jax.Array:
     """
@@ -449,6 +460,7 @@ def LamImpl(alphas: float, mu: float, nf: int, loops: int) -> jax.Array:
 # AlphasLam
 # ---------------------------------------------------------------------------
 
+
 def AlphasLam(lam: float, mu: float, nf: int, loops: int) -> jax.Array:
     """
     Compute αs(μ) from Λ^(nf) using the explicit loop expansion.
@@ -487,6 +499,7 @@ def AlphasLam(lam: float, mu: float, nf: int, loops: int) -> jax.Array:
 # ---------------------------------------------------------------------------
 # AlphasExact
 # ---------------------------------------------------------------------------
+
 
 def AlphasExact(
     alphas0: float,
@@ -548,20 +561,25 @@ def AlphasExact(
     # Selecting terms by loop order here (Python int, not traced) is safe
     # under jax.jit with static nf/loops.
     if loops == 1:
+
         def _rhs(t, api, args):
-            return -api**2 * b0
+            return -(api**2) * b0
     elif loops == 2:
+
         def _rhs(t, api, args):
-            return -api**2 * (b0 + b1 * api)
+            return -(api**2) * (b0 + b1 * api)
     elif loops == 3:
+
         def _rhs(t, api, args):
-            return -api**2 * (b0 + b1 * api + b2 * api**2)
+            return -(api**2) * (b0 + b1 * api + b2 * api**2)
     elif loops == 4:
+
         def _rhs(t, api, args):
-            return -api**2 * (b0 + b1 * api + b2 * api**2 + b3 * api**3)
+            return -(api**2) * (b0 + b1 * api + b2 * api**2 + b3 * api**3)
     else:  # loops == 5
+
         def _rhs(t, api, args):
-            return -api**2 * (b0 + b1 * api + b2 * api**2 + b3 * api**3 + b4 * api**4)
+            return -(api**2) * (b0 + b1 * api + b2 * api**2 + b3 * api**3 + b4 * api**4)
 
     y0 = jnp.asarray(alphas0 / jnp.pi)
     t0 = jnp.log(mu0**2)
@@ -589,6 +607,7 @@ def AlphasExact(
 # ---------------------------------------------------------------------------
 # Threshold running for αs (low->high and high->low)
 # ---------------------------------------------------------------------------
+
 
 def _check_consecutive_nfs(nfs: Sequence[int], direction: int) -> None:
     for i in range(1, len(nfs)):
@@ -660,5 +679,3 @@ def AlH2AlL(
         muini = dec.muth
 
     return AlphasExact(asini, muini, mu2, nf=entries[-1].nf - 1, loops=loops)
-
-

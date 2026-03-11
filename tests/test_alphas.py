@@ -15,6 +15,7 @@ Physical inputs:
 """
 
 import pytest
+
 from rundex import AlphasExact, AlphasLam, LamExpl, LamImpl
 
 # Standard inputs
@@ -79,6 +80,7 @@ REF_ALPHASEXACT_10 = {
 # Helper
 # ---------------------------------------------------------------------------
 
+
 def rel_err(a, b):
     return abs(a - b) / abs(b)
 
@@ -87,8 +89,8 @@ def rel_err(a, b):
 # LamExpl
 # ---------------------------------------------------------------------------
 
-class TestLamExpl:
 
+class TestLamExpl:
     @pytest.mark.parametrize("loops", [1, 2, 3, 4, 5])
     def test_vs_crundec(self, loops):
         """Match CRunDec reference to 10 significant digits."""
@@ -108,8 +110,8 @@ class TestLamExpl:
 # LamImpl
 # ---------------------------------------------------------------------------
 
-class TestLamImpl:
 
+class TestLamImpl:
     @pytest.mark.parametrize("loops", [1, 2, 3, 4, 5])
     def test_vs_crundec(self, loops):
         """Match CRunDec reference to 7 significant digits.
@@ -131,8 +133,8 @@ class TestLamImpl:
 # AlphasLam
 # ---------------------------------------------------------------------------
 
-class TestAlphasLam:
 
+class TestAlphasLam:
     @pytest.mark.parametrize("loops", [1, 2, 3, 4, 5])
     def test_roundtrip_vs_crundec(self, loops):
         """
@@ -142,9 +144,7 @@ class TestAlphasLam:
         lam = LamExpl(AS_MZ, MZ, NF, loops)
         as_back = AlphasLam(lam, MZ, NF, loops)
         ref = REF_ALPHASLAMEXPL_ROUNDTRIP[loops]
-        assert rel_err(as_back, ref) < 1e-10, (
-            f"loops={loops}: got {as_back:.10e}, ref {ref:.10e}"
-        )
+        assert rel_err(as_back, ref) < 1e-10, f"loops={loops}: got {as_back:.10e}, ref {ref:.10e}"
 
     def test_running_direction(self):
         """αs should decrease when μ increases (asymptotic freedom)."""
@@ -163,8 +163,8 @@ class TestAlphasLam:
 # AlphasExact
 # ---------------------------------------------------------------------------
 
-class TestAlphasExact:
 
+class TestAlphasExact:
     def test_identity_at_same_scale(self):
         result = AlphasExact(AS_MZ, MZ, MZ, NF, 4)
         assert result == AS_MZ
@@ -174,18 +174,14 @@ class TestAlphasExact:
         """Match CRunDec at μ=50 GeV to 8 significant digits."""
         result = AlphasExact(AS_MZ, MZ, 50.0, NF, loops)
         ref = REF_ALPHASEXACT_50[loops]
-        assert rel_err(result, ref) < 1e-8, (
-            f"loops={loops}: got {result:.10e}, ref {ref:.10e}"
-        )
+        assert rel_err(result, ref) < 1e-8, f"loops={loops}: got {result:.10e}, ref {ref:.10e}"
 
     @pytest.mark.parametrize("loops", [1, 2, 3, 4, 5])
     def test_vs_crundec_mu10(self, loops):
         """Match CRunDec at μ=10 GeV to 8 significant digits."""
         result = AlphasExact(AS_MZ, MZ, 10.0, NF, loops)
         ref = REF_ALPHASEXACT_10[loops]
-        assert rel_err(result, ref) < 1e-8, (
-            f"loops={loops}: got {result:.10e}, ref {ref:.10e}"
-        )
+        assert rel_err(result, ref) < 1e-8, f"loops={loops}: got {result:.10e}, ref {ref:.10e}"
 
     def test_round_trip(self):
         """Run up then back down — should recover the starting value to 9 digits."""
@@ -207,8 +203,8 @@ class TestAlphasExact:
         diffs = [abs(results[i + 1] - results[i]) for i in range(4)]
         for i in range(3):
             assert diffs[i + 1] < diffs[i], (
-                f"Loop convergence failed: Δ({i+2},{i+3}) = {diffs[i+1]:.2e} "
-                f"> Δ({i+1},{i+2}) = {diffs[i]:.2e}"
+                f"Loop convergence failed: Δ({i + 2},{i + 3}) = {diffs[i + 1]:.2e} "
+                f"> Δ({i + 1},{i + 2}) = {diffs[i]:.2e}"
             )
 
     def test_invalid_loops(self):
@@ -216,5 +212,3 @@ class TestAlphasExact:
             AlphasExact(AS_MZ, MZ, 50.0, NF, 0)
         with pytest.raises(ValueError):
             AlphasExact(AS_MZ, MZ, 50.0, NF, 6)
-
-

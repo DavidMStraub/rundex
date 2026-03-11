@@ -15,7 +15,7 @@ Conventions
 
 from __future__ import annotations
 
-from typing import Iterable
+from collections.abc import Iterable
 
 import jax.numpy as jnp
 from jax.scipy.special import spence
@@ -97,20 +97,11 @@ def _fsetcx(x: float, loops: int, nf: int) -> float:
     sum_terms = [0.0] * 5
     sum_terms[0] = 1.0
     sum_terms[1] = (c1 - b1 * c0) * x
-    sum_terms[2] = 0.5 * (
-        (c1 - b1 * c0) ** 2
-        + c2
-        - b1 * c1
-        + b1 * b1 * c0
-        - b2 * c0
-    ) * (x * x)
+    sum_terms[2] = 0.5 * ((c1 - b1 * c0) ** 2 + c2 - b1 * c1 + b1 * b1 * c0 - b2 * c0) * (x * x)
     sum_terms[3] = (
         (c1 - b1 * c0) ** 3 / 6.0
-        + 0.5
-        * (c1 - b1 * c0)
-        * (c2 - b1 * c1 + b1 * b1 * c0 - b2 * c0)
-        + (c3 - b1 * c2 + b1 * b1 * c1 - b2 * c1 - b1**3 * c0 + 2.0 * b1 * b2 * c0 - b3 * c0)
-        / 3.0
+        + 0.5 * (c1 - b1 * c0) * (c2 - b1 * c1 + b1 * b1 * c0 - b2 * c0)
+        + (c3 - b1 * c2 + b1 * b1 * c1 - b2 * c1 - b1**3 * c0 + 2.0 * b1 * b2 * c0 - b3 * c0) / 3.0
     ) * (x * x * x)
     sum_terms[4] = (
         (c1 - b1 * c0) ** 4 / 24.0
@@ -175,68 +166,78 @@ def _fMsFromOs2(mu: float, m_os: float, nl: float) -> float:
 def _fMsFromOs3(mu: float, m_os: float, nl: float) -> float:
     lmM = jnp.log((mu * mu) / (m_os * m_os))
     return (
-        (lmM * lmM * (
-            -2341.0 * _CA * _CA * _CF
-            + 1962.0 * _CA * _CF * _CF
-            - 243.0 * _CF * _CF * _CF
-            + 1492.0 * _CA * _CF * _TR
-            - 468.0 * _CF * _CF * _TR
-            + 1492.0 * _CA * _CF * nl * _TR
-            - 468.0 * _CF * _CF * nl * _TR
-            - 208.0 * _CF * _TR * _TR
-            - 416.0 * _CF * nl * _TR * _TR
-            - 208.0 * _CF * nl * nl * _TR * _TR
-        ))
+        (
+            lmM
+            * lmM
+            * (
+                -2341.0 * _CA * _CA * _CF
+                + 1962.0 * _CA * _CF * _CF
+                - 243.0 * _CF * _CF * _CF
+                + 1492.0 * _CA * _CF * _TR
+                - 468.0 * _CF * _CF * _TR
+                + 1492.0 * _CA * _CF * nl * _TR
+                - 468.0 * _CF * _CF * nl * _TR
+                - 208.0 * _CF * _TR * _TR
+                - 416.0 * _CF * nl * _TR * _TR
+                - 208.0 * _CF * nl * nl * _TR * _TR
+            )
+        )
         / 1152.0
-        + (lmM**3 * (
-            -242.0 * _CA * _CA * _CF
-            + 297.0 * _CA * _CF * _CF
-            - 81.0 * _CF * _CF * _CF
-            + 176.0 * _CA * _CF * _TR
-            - 108.0 * _CF * _CF * _TR
-            + 176.0 * _CA * _CF * nl * _TR
-            - 108.0 * _CF * _CF * nl * _TR
-            - 32.0 * _CF * _TR * _TR
-            - 64.0 * _CF * nl * _TR * _TR
-            - 32.0 * _CF * nl * nl * _TR * _TR
-        ))
+        + (
+            lmM**3
+            * (
+                -242.0 * _CA * _CA * _CF
+                + 297.0 * _CA * _CF * _CF
+                - 81.0 * _CF * _CF * _CF
+                + 176.0 * _CA * _CF * _TR
+                - 108.0 * _CF * _CF * _TR
+                + 176.0 * _CA * _CF * nl * _TR
+                - 108.0 * _CF * _CF * nl * _TR
+                - 32.0 * _CF * _TR * _TR
+                - 64.0 * _CF * nl * _TR * _TR
+                - 32.0 * _CF * nl * nl * _TR * _TR
+            )
+        )
         / 1152.0
-        + (lmM * (
-            -105944.0 * _CA * _CA * _CF
-            + 52317.0 * _CA * _CF * _CF
-            - 13203.0 * _CF * _CF * _CF
-            + 74624.0 * _CA * _CF * _TR
-            - 5436.0 * _CF * _CF * _TR
-            + 55616.0 * _CA * _CF * nl * _TR
-            + 2340.0 * _CF * _CF * nl * _TR
-            - 12608.0 * _CF * _TR * _TR
-            - 18304.0 * _CF * nl * _TR * _TR
-            - 5696.0 * _CF * nl * nl * _TR * _TR
-            + 12672.0 * _CA * _CA * _CF * _ZETA2
-            - 52704.0 * _CA * _CF * _CF * _ZETA2
-            + 19440.0 * _CF * _CF * _CF * _ZETA2
-            - 38016.0 * _CA * _CA * _CF * _LOG2 * _ZETA2
-            + 91584.0 * _CA * _CF * _CF * _LOG2 * _ZETA2
-            - 31104.0 * _CF * _CF * _CF * _LOG2 * _ZETA2
-            - 29952.0 * _CA * _CF * _TR * _ZETA2
-            + 27648.0 * _CF * _CF * _TR * _ZETA2
-            + 13824.0 * _CA * _CF * _LOG2 * _TR * _ZETA2
-            - 27648.0 * _CF * _CF * _LOG2 * _TR * _ZETA2
-            + 8064.0 * _CA * _CF * nl * _TR * _ZETA2
-            + 12096.0 * _CF * _CF * nl * _TR * _ZETA2
-            + 13824.0 * _CA * _CF * _LOG2 * nl * _TR * _ZETA2
-            - 27648.0 * _CF * _CF * _LOG2 * nl * _TR * _ZETA2
-            + 9216.0 * _CF * _TR * _TR * _ZETA2
-            + 4608.0 * _CF * nl * _TR * _TR * _ZETA2
-            - 4608.0 * _CF * nl * nl * _TR * _TR * _ZETA2
-            + 9504.0 * _CA * _CA * _CF * _ZETA3
-            - 22896.0 * _CA * _CF * _CF * _ZETA3
-            + 7776.0 * _CF * _CF * _CF * _ZETA3
-            + 6912.0 * _CA * _CF * _TR * _ZETA3
-            - 3456.0 * _CF * _CF * _TR * _ZETA3
-            + 6912.0 * _CA * _CF * nl * _TR * _ZETA3
-            - 3456.0 * _CF * _CF * nl * _TR * _ZETA3
-        ))
+        + (
+            lmM
+            * (
+                -105944.0 * _CA * _CA * _CF
+                + 52317.0 * _CA * _CF * _CF
+                - 13203.0 * _CF * _CF * _CF
+                + 74624.0 * _CA * _CF * _TR
+                - 5436.0 * _CF * _CF * _TR
+                + 55616.0 * _CA * _CF * nl * _TR
+                + 2340.0 * _CF * _CF * nl * _TR
+                - 12608.0 * _CF * _TR * _TR
+                - 18304.0 * _CF * nl * _TR * _TR
+                - 5696.0 * _CF * nl * nl * _TR * _TR
+                + 12672.0 * _CA * _CA * _CF * _ZETA2
+                - 52704.0 * _CA * _CF * _CF * _ZETA2
+                + 19440.0 * _CF * _CF * _CF * _ZETA2
+                - 38016.0 * _CA * _CA * _CF * _LOG2 * _ZETA2
+                + 91584.0 * _CA * _CF * _CF * _LOG2 * _ZETA2
+                - 31104.0 * _CF * _CF * _CF * _LOG2 * _ZETA2
+                - 29952.0 * _CA * _CF * _TR * _ZETA2
+                + 27648.0 * _CF * _CF * _TR * _ZETA2
+                + 13824.0 * _CA * _CF * _LOG2 * _TR * _ZETA2
+                - 27648.0 * _CF * _CF * _LOG2 * _TR * _ZETA2
+                + 8064.0 * _CA * _CF * nl * _TR * _ZETA2
+                + 12096.0 * _CF * _CF * nl * _TR * _ZETA2
+                + 13824.0 * _CA * _CF * _LOG2 * nl * _TR * _ZETA2
+                - 27648.0 * _CF * _CF * _LOG2 * nl * _TR * _ZETA2
+                + 9216.0 * _CF * _TR * _TR * _ZETA2
+                + 4608.0 * _CF * nl * _TR * _TR * _ZETA2
+                - 4608.0 * _CF * nl * nl * _TR * _TR * _ZETA2
+                + 9504.0 * _CA * _CA * _CF * _ZETA3
+                - 22896.0 * _CA * _CF * _CF * _ZETA3
+                + 7776.0 * _CF * _CF * _CF * _ZETA3
+                + 6912.0 * _CA * _CF * _TR * _ZETA3
+                - 3456.0 * _CF * _CF * _TR * _ZETA3
+                + 6912.0 * _CA * _CF * nl * _TR * _ZETA3
+                - 3456.0 * _CF * _CF * nl * _TR * _ZETA3
+            )
+        )
         / 13824.0
     )
 
@@ -251,7 +252,8 @@ def _fZmM(nl: float) -> float:
         + 1439.0 * _ZETA2 * _ZETA3 / 72.0
         - 1975.0 * _ZETA5 / 216.0
         + 220.0 * _A4 / 27.0
-        + nl * (
+        + nl
+        * (
             246643.0 / 23328.0
             - _LOG2**4 / 81.0
             + (967.0 / 108.0 + 22.0 * _LOG2 / 27.0 - 4.0 * _LOG2 * _LOG2 / 27.0) * _ZETA2
@@ -271,21 +273,27 @@ def _fMsFromOs4(mu: float, m_os: float, nl: float, err: float) -> float:
         - 288.778291935394 * lmM * lmM
         - 32.54735725308642 * lmM**3
         - 1.85546875 * lmM**4
-        + nl * nl * nl * (
+        + nl
+        * nl
+        * nl
+        * (
             0.678141025604516 * err
             + 0.3205521521864135 * lmM
             + 0.0800290327210927 * lmM * lmM
             + 0.010030864197530864 * lmM**3
             + 0.001157407407407407 * lmM**4
         )
-        + nl * nl * (
+        + nl
+        * nl
+        * (
             -43.48241924867489 * err
             - 19.82672048099557 * lmM
             - 4.482957520194182 * lmM * lmM
             - 0.5270061728395061 * lmM**3
             - 0.04108796296296297 * lmM**4
         )
-        + nl * (
+        + nl
+        * (
             756.9421565599532 * err
             + 330.1770776731065 * lmM
             + 67.99849534415492 * lmM * lmM
@@ -309,7 +317,8 @@ def _fZmInvM(nl: float) -> float:
         - nl * nl * (-2353.0 / 23328.0 - (13.0 * _PI * _PI) / 324.0 - (7.0 * _ZETA3) / 54.0)
         + (58.0 * _ZETA3) / 27.0
         - (1439.0 * _PI * _PI * _ZETA3) / 432.0
-        - nl * (
+        - nl
+        * (
             246643.0 / 23328.0
             + (967.0 * _PI * _PI) / 648.0
             - (61.0 * _PI**4) / 1944.0
@@ -369,7 +378,8 @@ def _fMumFromOs3(nl: float) -> float:
         + nl * nl * (-2353.0 / 23328.0 - (13.0 * _PI * _PI) / 324.0 - (7.0 * _ZETA3) / 54.0)
         - (70.0 * _ZETA3) / 27.0
         + (1439.0 * _PI * _PI * _ZETA3) / 432.0
-        + nl * (
+        + nl
+        * (
             246643.0 / 23328.0
             + (967.0 * _PI * _PI) / 648.0
             - (61.0 * _PI**4) / 1944.0
@@ -405,8 +415,21 @@ def _fOsFromMs2(mu: float, m_ms: float, nl: float) -> float:
         - (71.0 * _CF * _CF) / 128.0
         - (143.0 * _CF * _TR) / 96.0
         - (71.0 * _CF * nl * _TR) / 96.0
-        + lmM * ((185.0 * _CA * _CF) / 96.0 - (9.0 * _CF * _CF) / 32.0 - (13.0 * _CF * _TR) / 24.0 - (13.0 * _CF * nl * _TR) / 24.0)
-        + lmM * lmM * ((11.0 * _CA * _CF) / 32.0 + (9.0 * _CF * _CF) / 32.0 - (_CF * _TR) / 8.0 - (_CF * nl * _TR) / 8.0)
+        + lmM
+        * (
+            (185.0 * _CA * _CF) / 96.0
+            - (9.0 * _CF * _CF) / 32.0
+            - (13.0 * _CF * _TR) / 24.0
+            - (13.0 * _CF * nl * _TR) / 24.0
+        )
+        + lmM
+        * lmM
+        * (
+            (11.0 * _CA * _CF) / 32.0
+            + (9.0 * _CF * _CF) / 32.0
+            - (_CF * _TR) / 8.0
+            - (_CF * nl * _TR) / 8.0
+        )
         - (_CA * _CF * _ZETA2) / 2.0
         + (15.0 * _CF * _CF * _ZETA2) / 8.0
         + (3.0 * _CA * _CF * _LOG2 * _ZETA2) / 2.0
@@ -421,7 +444,8 @@ def _fOsFromMs2(mu: float, m_ms: float, nl: float) -> float:
 def _fOsFromMs3(mu: float, m_ms: float, nl: float) -> float:
     lmM = jnp.log((mu * mu) / (m_ms * m_ms))
     return (
-        lmM**3 * (
+        lmM**3
+        * (
             (121.0 * _CA * _CA * _CF) / 576.0
             + (33.0 * _CA * _CF * _CF) / 128.0
             + (9.0 * _CF * _CF * _CF) / 128.0
@@ -433,7 +457,9 @@ def _fOsFromMs3(mu: float, m_ms: float, nl: float) -> float:
             + (_CF * nl * _TR * _TR) / 18.0
             + (_CF * nl * nl * _TR * _TR) / 36.0
         )
-        + lmM * lmM * (
+        + lmM
+        * lmM
+        * (
             (2341.0 * _CA * _CA * _CF) / 1152.0
             + (21.0 * _CA * _CF * _CF) / 64.0
             - (63.0 * _CF * _CF * _CF) / 128.0
@@ -445,7 +471,8 @@ def _fOsFromMs3(mu: float, m_ms: float, nl: float) -> float:
             + (13.0 * _CF * nl * _TR * _TR) / 36.0
             + (13.0 * _CF * nl * nl * _TR * _TR) / 72.0
         )
-        + lmM * (
+        + lmM
+        * (
             (13243.0 * _CA * _CA * _CF) / 1728.0
             - (4219.0 * _CA * _CF * _CF) / 1536.0
             + (495.0 * _CF * _CF * _CF) / 512.0
@@ -492,21 +519,27 @@ def _fOsFromMs4(mu: float, m_ms: float, nl: float, err: float) -> float:
         + 409.2429990574718 * lmM * lmM
         + 66.93663194444443 * lmM**3
         + 8.056278935185185 * lmM**4
-        + nl * nl * nl * (
+        + nl
+        * nl
+        * nl
+        * (
             -0.678141025604516 * err
             - 0.3205521521864134 * lmM
             - 0.0800290327210927 * lmM * lmM
             - 0.010030864197530864 * lmM**3
             - 0.001157407407407407 * lmM**4
         )
-        + nl * (
+        + nl
+        * (
             -745.7207145811878 * err
             - 358.29765085086774 * lmM
             - 87.39262571554698 * lmM * lmM
             - 11.883873456790122 * lmM**3
             - 1.2705439814814814 * lmM**4
         )
-        + nl * nl * (
+        + nl
+        * nl
+        * (
             43.396250117985666 * err
             + 20.528466368867228 * lmM
             + 4.971905254812516 * lmM * lmM
@@ -525,14 +558,27 @@ def _deltamOS2mMS(m_os: float, mq, asmu: float, mu: float, nlq: int, loops: int)
         x = mqi / m_os
         nl = nlq - i
         if loops >= 2:
-            erg += asmu * asmu * 2.0 / 3.0 * (
-                48.0 * x**4 * jnp.log(x) ** 2
-                + 48.0 * x * x * jnp.log(x)
-                + 72.0 * x * x
-                + 8.0 * _PI * _PI * (x**4 - 3.0 * x**3 - 3.0 * x)
-                - 48.0 * (x + 1.0) ** 2 * (x * x - x + 1.0) * (jnp.log(x) * jnp.log(x + 1.0) + _polylog2(-x))
-                - 48.0 * (x - 1.0) ** 2 * (x * x + x + 1.0) * (jnp.log(x) * jnp.log(1.0 - x) + _polylog2(x))
-            ) / 96.0
+            erg += (
+                asmu
+                * asmu
+                * 2.0
+                / 3.0
+                * (
+                    48.0 * x**4 * jnp.log(x) ** 2
+                    + 48.0 * x * x * jnp.log(x)
+                    + 72.0 * x * x
+                    + 8.0 * _PI * _PI * (x**4 - 3.0 * x**3 - 3.0 * x)
+                    - 48.0
+                    * (x + 1.0) ** 2
+                    * (x * x - x + 1.0)
+                    * (jnp.log(x) * jnp.log(x + 1.0) + _polylog2(-x))
+                    - 48.0
+                    * (x - 1.0) ** 2
+                    * (x * x + x + 1.0)
+                    * (jnp.log(x) * jnp.log(1.0 - x) + _polylog2(x))
+                )
+                / 96.0
+            )
         if loops >= 3:
             erg += asmu**3 * (
                 -21.8714 * x
@@ -541,7 +587,12 @@ def _deltamOS2mMS(m_os: float, mq, asmu: float, mu: float, nlq: int, loops: int)
                 - 0.0493333 * x**4
                 + nl * (0.982667 * x + 0.300333 * x * x)
                 + jnp.log(mu * mu / (m_os * m_os))
-                * (-6.61056 * x + 2.46511 * x * x - 0.724333 * x**3 + nl * (0.534667 * x - 0.22 * x * x + 0.067 * x**3))
+                * (
+                    -6.61056 * x
+                    + 2.46511 * x * x
+                    - 0.724333 * x**3
+                    + nl * (0.534667 * x - 0.22 * x * x + 0.067 * x**3)
+                )
                 + jnp.log(x) * (16.9477 * x - 1.10133 * nl * x + 2.78756 * x * x - 0.0343333 * x**3)
                 + 8.0
                 / 9.0
@@ -553,8 +604,13 @@ def _deltamOS2mMS(m_os: float, mq, asmu: float, mu: float, nlq: int, loops: int)
                     + 12.0 * x * jnp.log(x)
                     + 24.0 * x
                     + _PI * _PI * (4.0 * x**3 - 9.0 * x * x - 3.0)
-                    - 6.0 * (4.0 * x**3 + 3.0 * x * x + 1.0) * (jnp.log(x) * jnp.log(x + 1.0) + _polylog2(-x))
-                    - 6.0 * (x - 1.0) * (4.0 * x * x + x + 1.0) * (jnp.log(x) * jnp.log(1.0 - x) + _polylog2(x))
+                    - 6.0
+                    * (4.0 * x**3 + 3.0 * x * x + 1.0)
+                    * (jnp.log(x) * jnp.log(x + 1.0) + _polylog2(-x))
+                    - 6.0
+                    * (x - 1.0)
+                    * (4.0 * x * x + x + 1.0)
+                    * (jnp.log(x) * jnp.log(1.0 - x) + _polylog2(x))
                 )
             )
     return erg
@@ -570,14 +626,27 @@ def _deltamMS2mOS(m_ms: float, mq, asmu: float, mu: float, nlq: int, loops: int)
         x = mqi / m_ms
         nl = nlq - i
         if loops >= 2:
-            erg += -asmu * asmu * 2.0 / 3.0 * (
-                48.0 * x**4 * jnp.log(x) ** 2
-                + 48.0 * x * x * jnp.log(x)
-                + 72.0 * x * x
-                + 8.0 * _PI * _PI * (x**4 - 3.0 * x**3 - 3.0 * x)
-                - 48.0 * (x + 1.0) ** 2 * (x * x - x + 1.0) * (jnp.log(x) * jnp.log(x + 1.0) + _polylog2(-x))
-                - 48.0 * (x - 1.0) ** 2 * (x * x + x + 1.0) * (jnp.log(x) * jnp.log(1.0 - x) + _polylog2(x))
-            ) / 96.0
+            erg += (
+                -asmu
+                * asmu
+                * 2.0
+                / 3.0
+                * (
+                    48.0 * x**4 * jnp.log(x) ** 2
+                    + 48.0 * x * x * jnp.log(x)
+                    + 72.0 * x * x
+                    + 8.0 * _PI * _PI * (x**4 - 3.0 * x**3 - 3.0 * x)
+                    - 48.0
+                    * (x + 1.0) ** 2
+                    * (x * x - x + 1.0)
+                    * (jnp.log(x) * jnp.log(x + 1.0) + _polylog2(-x))
+                    - 48.0
+                    * (x - 1.0) ** 2
+                    * (x * x + x + 1.0)
+                    * (jnp.log(x) * jnp.log(1.0 - x) + _polylog2(x))
+                )
+                / 96.0
+            )
         if loops >= 3:
             term1 = (
                 -21.8714 * x
@@ -585,7 +654,13 @@ def _deltamMS2mOS(m_ms: float, mq, asmu: float, mu: float, nlq: int, loops: int)
                 - 1.02211 * x**3
                 - 0.0493333 * x**4
                 + nl * (0.982667 * x + 0.300333 * x * x)
-                + lmu * (-6.61056 * x + 2.46511 * x * x - 0.724333 * x**3 + nl * (0.534667 * x - 0.22 * x * x + 0.067 * x**3))
+                + lmu
+                * (
+                    -6.61056 * x
+                    + 2.46511 * x * x
+                    - 0.724333 * x**3
+                    + nl * (0.534667 * x - 0.22 * x * x + 0.067 * x**3)
+                )
                 + jnp.log(x) * (16.9477 * x - 1.10133 * nl * x + 2.78756 * x * x - 0.0343333 * x**3)
                 + 8.0
                 / 9.0
@@ -597,8 +672,13 @@ def _deltamMS2mOS(m_ms: float, mq, asmu: float, mu: float, nlq: int, loops: int)
                     + 12.0 * x * jnp.log(x)
                     + 24.0 * x
                     + _PI * _PI * (4.0 * x**3 - 9.0 * x * x - 3.0)
-                    - 6.0 * (4.0 * x**3 + 3.0 * x * x + 1.0) * (jnp.log(x) * jnp.log(x + 1.0) + _polylog2(-x))
-                    - 6.0 * (x - 1.0) * (4.0 * x * x + x + 1.0) * (jnp.log(x) * jnp.log(1.0 - x) + _polylog2(x))
+                    - 6.0
+                    * (4.0 * x**3 + 3.0 * x * x + 1.0)
+                    * (jnp.log(x) * jnp.log(x + 1.0) + _polylog2(-x))
+                    - 6.0
+                    * (x - 1.0)
+                    * (4.0 * x * x + x + 1.0)
+                    * (jnp.log(x) * jnp.log(1.0 - x) + _polylog2(x))
                 )
             )
             term2 = (
@@ -608,12 +688,7 @@ def _deltamMS2mOS(m_ms: float, mq, asmu: float, mu: float, nlq: int, loops: int)
                 + 8.0 * _PI * _PI * (7.0 * x**4 - 15.0 * x**3 - 3.0 * x)
                 - lmu * (-72.0 * x * x + 12.0 * _PI * _PI * (-2.0 * x**4 + 3.0 * x**3 - 3.0 * x))
                 - 48.0
-                * (
-                    (7.0 * x + 5.0) * x**3
-                    + x
-                    + 1.5 * lmu * (2.0 * x**4 + x**3 - x - 2.0)
-                    - 1.0
-                )
+                * ((7.0 * x + 5.0) * x**3 + x + 1.5 * lmu * (2.0 * x**4 + x**3 - x - 2.0) - 1.0)
                 * (jnp.log(x) * jnp.log(x + 1.0) + _polylog2(-x))
                 - 48.0
                 * (x - 1.0)
@@ -626,7 +701,7 @@ def _deltamMS2mOS(m_ms: float, mq, asmu: float, mu: float, nlq: int, loops: int)
                 )
                 * (jnp.log(x) * jnp.log(1.0 - x) + _polylog2(x))
             )
-            erg += -asmu**3 * term1 + asmu**3 * 8.0 / 9.0 * term2 / 192.0
+            erg += -(asmu**3) * term1 + asmu**3 * 8.0 / 9.0 * term2 / 192.0
     return erg
 
 
@@ -638,7 +713,7 @@ def _fmq6to5os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
     sum_terms[0] = 1.0
     sum_terms[1] = 0.0
     sum_terms[2] = -api * api * (89.0 / 432.0 - (5.0 * lmM) / 36.0 + lmM * lmM / 12.0)
-    sum_terms[3] = -api**3 * (
+    sum_terms[3] = -(api**3) * (
         1871.0 / 2916.0
         - (4.0 * _A4) / 9.0
         - _LOG2**4 / 54.0
@@ -672,7 +747,9 @@ def _fmq6to5os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
         + (_LOG2**5 * jnp.log(16.0)) / 81.0
         + (1924649.0 * _A4) / 181440.0
         + (118.0 * _A5) / 27.0
-        + nlq * nlq * (
+        + nlq
+        * nlq
+        * (
             -17671.0 / 124416.0
             - (31.0 * lmM * lmM) / 1296.0
             - lmM**4 / 864.0
@@ -949,11 +1026,7 @@ def mOS2mMS(
     sum_terms[0] = 1.0
     sum_terms[1] = alphas * _fMsFromOs1(mu, m_os) / _PI
     sum_terms[2] = alphas * alphas * _fMsFromOs2(mu, m_os, nf - 1) / (_PI * _PI)
-    sum_terms[3] = (
-        alphas**3
-        * (_fMsFromOs3(mu, m_os, nf - 1) + _fZmM(nf - 1))
-        / (_PI**3)
-    )
+    sum_terms[3] = alphas**3 * (_fMsFromOs3(mu, m_os, nf - 1) + _fZmM(nf - 1)) / (_PI**3)
     sum_terms[4] = alphas**4 * _fMsFromOs4(mu, m_os, nf - 1, fdelm) / (_PI**4)
 
     if loops == 0:
@@ -1045,11 +1118,7 @@ def mMS2mOS(
     sum_terms[0] = 1.0
     sum_terms[1] = alphas * _fOsFromMs1(mu, m_ms) / _PI
     sum_terms[2] = alphas * alphas * _fOsFromMs2(mu, m_ms, nf - 1) / (_PI * _PI)
-    sum_terms[3] = (
-        alphas**3
-        * (_fOsFromMs3(mu, m_ms, nf - 1) + _fZmInvM(nf - 1))
-        / (_PI**3)
-    )
+    sum_terms[3] = alphas**3 * (_fOsFromMs3(mu, m_ms, nf - 1) + _fZmInvM(nf - 1)) / (_PI**3)
     sum_terms[4] = alphas**4 * _fOsFromMs4(mu, m_ms, nf - 1, fdelm) / (_PI**4)
 
     if loops == 0:
@@ -1086,137 +1155,160 @@ def mMS2m1S(
         m1s += alphas * m_ms * (12.0 - 2.0 * alphas * _PI + 9.0 * lmm) / (9.0 * _PI)
         return m1s
     if loops == 2:
-        m1s += alphas * m_ms * (
-            -(2.0 * alphas) / 9.0
-            + alphas * alphas * (-291.0 + 22.0 * nl - 198.0 * log34 + 12.0 * nl * log34 - 3.0 * (8.0 + 6.0 * lmm)) / (81.0 * _PI)
-            + (4.0 + 3.0 * lmm) / (3.0 * _PI)
-            + (
-                alphas
-                * (
-                    2763.0
-                    - 142.0 * nl
-                    + 96.0 * _PI * _PI
-                    - 16.0 * nl * _PI * _PI
-                    + 32.0 * _PI * _PI * _LOG2
-                    + 2036.0 * lmm
-                    - 104.0 * nl * lmm
-                    + 564.0 * lmm * lmm
-                    - 24.0 * nl * lmm * lmm
-                    - 48.0 * _ZETA3
+        m1s += (
+            alphas
+            * m_ms
+            * (
+                -(2.0 * alphas) / 9.0
+                + alphas
+                * alphas
+                * (-291.0 + 22.0 * nl - 198.0 * log34 + 12.0 * nl * log34 - 3.0 * (8.0 + 6.0 * lmm))
+                / (81.0 * _PI)
+                + (4.0 + 3.0 * lmm) / (3.0 * _PI)
+                + (
+                    alphas
+                    * (
+                        2763.0
+                        - 142.0 * nl
+                        + 96.0 * _PI * _PI
+                        - 16.0 * nl * _PI * _PI
+                        + 32.0 * _PI * _PI * _LOG2
+                        + 2036.0 * lmm
+                        - 104.0 * nl * lmm
+                        + 564.0 * lmm * lmm
+                        - 24.0 * nl * lmm * lmm
+                        - 48.0 * _ZETA3
+                    )
                 )
+                / (288.0 * _PI * _PI)
             )
-            / (288.0 * _PI * _PI)
         )
         return m1s
     if loops == 3:
-        m1s += alphas * m_ms * (
-            -(2.0 * alphas) / 9.0
-            + alphas * alphas * (-291.0 + 22.0 * nl - 198.0 * log34 + 12.0 * nl * log34) / (81.0 * _PI)
-            + (4.0 + 3.0 * lmm) / (3.0 * _PI)
-            - (2.0 * alphas * alphas * (4.0 + 3.0 * lmm)) / (27.0 * _PI)
-            + alphas * alphas * alphas * (
-                -372.0
-                + 40.0 * nl
-                - 792.0 * log34
-                + 48.0 * nl * log34
-                - 279.0 * lmm
-                + 30.0 * nl * lmm
-                - 594.0 * log34 * lmm
-                + 36.0 * nl * log34 * lmm
-            )
-            / (243.0 * _PI * _PI)
-            + (
-                alphas
-                * (
-                    2763.0
-                    - 142.0 * nl
-                    + 96.0 * _PI * _PI
-                    - 16.0 * nl * _PI * _PI
-                    + 32.0 * _PI * _PI * _LOG2
-                    + 2036.0 * lmm
-                    - 104.0 * nl * lmm
-                    + 564.0 * lmm * lmm
-                    - 24.0 * nl * lmm * lmm
-                    - 48.0 * _ZETA3
-                )
-            )
-            / (288.0 * _PI * _PI)
-            + alphas * alphas * alphas * (
-                -2763.0
-                + 142.0 * nl
-                - 96.0 * _PI * _PI
-                + 16.0 * nl * _PI * _PI
-                - 32.0 * _PI * _PI * _LOG2
-                - 2036.0 * lmm
-                + 104.0 * nl * lmm
-                - 564.0 * lmm * lmm
-                + 24.0 * nl * lmm * lmm
-                + 48.0 * _ZETA3
-            )
-            / (1296.0 * _PI * _PI)
-            + alphas * alphas * alphas * (
-                -129096.0
-                + 20316.0 * nl
-                - 616.0 * nl * nl
-                - 11668.0 * _PI * _PI
-                + 528.0 * nl * _PI * _PI
-                - 16.0 * nl * nl * _PI * _PI
-                + 243.0 * _PI**4
-                - 200232.0 * log34
-                + 27792.0 * nl * log34
-                - 864.0 * nl * nl * log34
-                - 78408.0 * log34 * log34
-                + 9504.0 * nl * log34 * log34
-                - 288.0 * nl * nl * log34 * log34
-                - 59400.0 * _ZETA3
-                + 8208.0 * nl * _ZETA3
-                - 192.0 * nl * nl * _ZETA3
-            )
-            / (3888.0 * _PI * _PI)
-            + (
-                alphas
+        m1s += (
+            alphas
+            * m_ms
+            * (
+                -(2.0 * alphas) / 9.0
+                + alphas
+                * alphas
+                * (-291.0 + 22.0 * nl - 198.0 * log34 + 12.0 * nl * log34)
+                / (81.0 * _PI)
+                + (4.0 + 3.0 * lmm) / (3.0 * _PI)
+                - (2.0 * alphas * alphas * (4.0 + 3.0 * lmm)) / (27.0 * _PI)
+                + alphas
+                * alphas
                 * alphas
                 * (
-                    42314585.0
-                    - 4636940.0 * nl
-                    + 47060.0 * nl * nl
-                    + 7834092.0 * _PI * _PI
-                    - 713520.0 * nl * _PI * _PI
-                    + 18720.0 * nl * nl * _PI * _PI
-                    - 41700.0 * _PI**4
-                    + 14640.0 * nl * _PI**4
-                    - 1656000.0 * _PI * _PI * _LOG2
-                    - 63360.0 * nl * _PI * _PI * _LOG2
-                    - 126720.0 * _PI * _PI * _LOG2 * _LOG2
-                    + 11520.0 * nl * _PI * _PI * _LOG2 * _LOG2
-                    - 158400.0 * _LOG2**4
-                    + 5760.0 * nl * _LOG2**4
-                    + 33620760.0 * lmm
-                    - 3723120.0 * nl * lmm
-                    + 64080.0 * nl * nl * lmm
-                    + 1010880.0 * _PI * _PI * lmm
-                    - 220320.0 * nl * _PI * _PI * lmm
-                    + 8640.0 * nl * nl * _PI * _PI * lmm
-                    + 336960.0 * _PI * _PI * _LOG2 * lmm
-                    - 17280.0 * nl * _PI * _PI * _LOG2 * lmm
-                    + 11726100.0 * lmm * lmm
-                    - 1247400.0 * nl * lmm * lmm
-                    + 28080.0 * nl * nl * lmm * lmm
-                    + 2009880.0 * lmm * lmm * lmm
-                    - 185760.0 * nl * lmm * lmm * lmm
-                    + 4320.0 * nl * nl * lmm * lmm * lmm
-                    - 3801600.0 * _A4
-                    + 138240.0 * nl * _A4
-                    + 1002240.0 * _ZETA3
-                    - 1561680.0 * nl * _ZETA3
-                    + 60480.0 * nl * nl * _ZETA3
-                    - 1554120.0 * _PI * _PI * _ZETA3
-                    - 894240.0 * lmm * _ZETA3
-                    - 362880.0 * nl * lmm * _ZETA3
-                    + 4266000.0 * _ZETA5
+                    -372.0
+                    + 40.0 * nl
+                    - 792.0 * log34
+                    + 48.0 * nl * log34
+                    - 279.0 * lmm
+                    + 30.0 * nl * lmm
+                    - 594.0 * log34 * lmm
+                    + 36.0 * nl * log34 * lmm
                 )
+                / (243.0 * _PI * _PI)
+                + (
+                    alphas
+                    * (
+                        2763.0
+                        - 142.0 * nl
+                        + 96.0 * _PI * _PI
+                        - 16.0 * nl * _PI * _PI
+                        + 32.0 * _PI * _PI * _LOG2
+                        + 2036.0 * lmm
+                        - 104.0 * nl * lmm
+                        + 564.0 * lmm * lmm
+                        - 24.0 * nl * lmm * lmm
+                        - 48.0 * _ZETA3
+                    )
+                )
+                / (288.0 * _PI * _PI)
+                + alphas
+                * alphas
+                * alphas
+                * (
+                    -2763.0
+                    + 142.0 * nl
+                    - 96.0 * _PI * _PI
+                    + 16.0 * nl * _PI * _PI
+                    - 32.0 * _PI * _PI * _LOG2
+                    - 2036.0 * lmm
+                    + 104.0 * nl * lmm
+                    - 564.0 * lmm * lmm
+                    + 24.0 * nl * lmm * lmm
+                    + 48.0 * _ZETA3
+                )
+                / (1296.0 * _PI * _PI)
+                + alphas
+                * alphas
+                * alphas
+                * (
+                    -129096.0
+                    + 20316.0 * nl
+                    - 616.0 * nl * nl
+                    - 11668.0 * _PI * _PI
+                    + 528.0 * nl * _PI * _PI
+                    - 16.0 * nl * nl * _PI * _PI
+                    + 243.0 * _PI**4
+                    - 200232.0 * log34
+                    + 27792.0 * nl * log34
+                    - 864.0 * nl * nl * log34
+                    - 78408.0 * log34 * log34
+                    + 9504.0 * nl * log34 * log34
+                    - 288.0 * nl * nl * log34 * log34
+                    - 59400.0 * _ZETA3
+                    + 8208.0 * nl * _ZETA3
+                    - 192.0 * nl * nl * _ZETA3
+                )
+                / (3888.0 * _PI * _PI)
+                + (
+                    alphas
+                    * alphas
+                    * (
+                        42314585.0
+                        - 4636940.0 * nl
+                        + 47060.0 * nl * nl
+                        + 7834092.0 * _PI * _PI
+                        - 713520.0 * nl * _PI * _PI
+                        + 18720.0 * nl * nl * _PI * _PI
+                        - 41700.0 * _PI**4
+                        + 14640.0 * nl * _PI**4
+                        - 1656000.0 * _PI * _PI * _LOG2
+                        - 63360.0 * nl * _PI * _PI * _LOG2
+                        - 126720.0 * _PI * _PI * _LOG2 * _LOG2
+                        + 11520.0 * nl * _PI * _PI * _LOG2 * _LOG2
+                        - 158400.0 * _LOG2**4
+                        + 5760.0 * nl * _LOG2**4
+                        + 33620760.0 * lmm
+                        - 3723120.0 * nl * lmm
+                        + 64080.0 * nl * nl * lmm
+                        + 1010880.0 * _PI * _PI * lmm
+                        - 220320.0 * nl * _PI * _PI * lmm
+                        + 8640.0 * nl * nl * _PI * _PI * lmm
+                        + 336960.0 * _PI * _PI * _LOG2 * lmm
+                        - 17280.0 * nl * _PI * _PI * _LOG2 * lmm
+                        + 11726100.0 * lmm * lmm
+                        - 1247400.0 * nl * lmm * lmm
+                        + 28080.0 * nl * nl * lmm * lmm
+                        + 2009880.0 * lmm * lmm * lmm
+                        - 185760.0 * nl * lmm * lmm * lmm
+                        + 4320.0 * nl * nl * lmm * lmm * lmm
+                        - 3801600.0 * _A4
+                        + 138240.0 * nl * _A4
+                        + 1002240.0 * _ZETA3
+                        - 1561680.0 * nl * _ZETA3
+                        + 60480.0 * nl * nl * _ZETA3
+                        - 1554120.0 * _PI * _PI * _ZETA3
+                        - 894240.0 * lmm * _ZETA3
+                        - 362880.0 * nl * lmm * _ZETA3
+                        + 4266000.0 * _ZETA5
+                    )
+                )
+                / (466560.0 * _PI * _PI * _PI)
             )
-            / (466560.0 * _PI * _PI * _PI)
         )
         return m1s
 
@@ -1297,7 +1389,9 @@ def mMS2m1S(
             + 678107.270998157 * alphas**4 * m_ms * _fOsFromMs4(mu, m_ms, nl, fdelm)
         )
         + (
-            alphas * alphas * m_ms
+            alphas
+            * alphas
+            * m_ms
             * (
                 2763.0
                 - 142.0 * nl

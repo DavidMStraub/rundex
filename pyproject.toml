@@ -26,3 +26,33 @@ test = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+line-length = 100
+exclude = ["benchmarks"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "W",   # pycodestyle warnings
+]
+ignore = [
+    "E741",  # ambiguous variable name (l, O, I) — physics code uses 'l' for loops
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E731"]  # lambda assignments are idiomatic in pytest parametrize helpers
+"src/rundex/_masses.py" = ["E501"]  # long lines in physics formulas
+
+[tool.mypy]
+ignore_missing_imports = true
+warn_return_any = false
+exclude = ["benchmarks"]
+
+[[tool.mypy.overrides]]
+module = "rundex.*"
+disallow_untyped_defs = true
