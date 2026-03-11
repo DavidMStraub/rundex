@@ -22,6 +22,7 @@ from rundex import (
     mMS2mMS,
     mMS2mOS,
     mOS2mMS,
+    mOS2mSI,
 )
 
 
@@ -102,6 +103,12 @@ def test_mOS2mMS_jit(loops):
     f = lambda m: mOS2mMS(m, mq=None, alphas=0.223, mu=4.18, nf=5, loops=loops)
     _ = _jit_and_grad(f, 4.18)
 
+
+
+@pytest.mark.parametrize("loops", [0, 1, 2, 3, 4])
+def test_mOS2mSI_jit(loops):
+    f = lambda m: mOS2mSI(m, mq=None, asM=0.216, nf=5, loops=loops)
+    _ = _jit_and_grad(f, 4.78)
 
 
 @pytest.mark.parametrize("loops", [0, 1, 2, 3, 4])

@@ -323,6 +323,76 @@ def _fZmInvM(nl: float) -> float:
     )
 
 
+# ---------------------------------------------------------------------------
+# Coefficients for the mOS → m_MS(m_MS) (SI) conversion.
+# These correspond to C++ CRunDec::fMumFromOs1/2/3/4.
+# The "SI" (self-invariant) scheme evaluates αs at μ = m_OS, so all
+# log(μ/m_OS) terms vanish; the resulting coefficients differ from
+# _fMsFromOs{1..4} evaluated at mu=m_os.
+# ---------------------------------------------------------------------------
+
+
+def _fMumFromOs1() -> float:
+    return -_CF
+
+
+def _fMumFromOs2(nl: float) -> float:
+    """2-loop SI coefficient (nl = nf-1 = number of light quarks)."""
+    return (
+        (-1111.0 * _CA * _CF) / 384.0
+        + (199.0 * _CF * _CF) / 128.0
+        + (143.0 * _CF * _TR) / 96.0
+        + (71.0 * _CF * nl * _TR) / 96.0
+        + (_CA * _CF * _ZETA2) / 2.0
+        - (15.0 * _CF * _CF * _ZETA2) / 8.0
+        - (3.0 * _CA * _CF * _LOG2 * _ZETA2) / 2.0
+        + 3.0 * _CF * _CF * _LOG2 * _ZETA2
+        - _CF * _TR * _ZETA2
+        + (_CF * nl * _TR * _ZETA2) / 2.0
+        + (3.0 * _CA * _CF * _ZETA3) / 8.0
+        - (3.0 * _CF * _CF * _ZETA3) / 4.0
+    )
+
+
+def _fMumFromOs3(nl: float) -> float:
+    """3-loop SI coefficient (nl = nf-1 = number of light quarks)."""
+    return (
+        -7172965.0 / 93312.0
+        - (293.0 * nl) / 216.0
+        - (618281.0 * _PI * _PI) / 38880.0
+        - (nl * _PI * _PI) / 9.0
+        + (695.0 * _PI**4) / 7776.0
+        + (623.0 * _PI * _PI * _LOG2) / 162.0
+        + (22.0 * _PI * _PI * _LOG2 * _LOG2) / 81.0
+        + (55.0 * _LOG2**4) / 162.0
+        + (220.0 * _A4) / 27.0
+        + nl * nl * (-2353.0 / 23328.0 - (13.0 * _PI * _PI) / 324.0 - (7.0 * _ZETA3) / 54.0)
+        - (70.0 * _ZETA3) / 27.0
+        + (1439.0 * _PI * _PI * _ZETA3) / 432.0
+        + nl * (
+            246643.0 / 23328.0
+            + (967.0 * _PI * _PI) / 648.0
+            - (61.0 * _PI**4) / 1944.0
+            + (11.0 * _PI * _PI * _LOG2) / 81.0
+            - (2.0 * _PI * _PI * _LOG2 * _LOG2) / 81.0
+            - _LOG2**4 / 81.0
+            - (8.0 * _A4) / 27.0
+            + (241.0 * _ZETA3) / 72.0
+        )
+        - (1975.0 * _ZETA5) / 216.0
+    )
+
+
+def _fMumFromOs4(nl: float, fdelm: float) -> float:
+    """4-loop SI coefficient (nl = nf-1 = number of light quarks)."""
+    return fdelm * (
+        -3214.227044839041
+        + 692.4809215366435 * nl
+        - 41.95978562498058 * nl * nl
+        + 0.678141025604516 * nl * nl * nl
+    )
+
+
 def _fOsFromMs1(mu: float, m_ms: float) -> float:
     lmM = jnp.log((mu * mu) / (m_ms * m_ms))
     return _CF + (3.0 * _CF * lmM) / 4.0
@@ -885,6 +955,65 @@ def mOS2mMS(
         / (_PI**3)
     )
     sum_terms[4] = alphas**4 * _fMsFromOs4(mu, m_os, nf - 1, fdelm) / (_PI**4)
+
+    if loops == 0:
+        erg = 1.0
+    else:
+        erg = 0.0
+        for i in range(loops + 1):
+            erg += sum_terms[i]
+
+    return m_os * (erg + deltalight)
+
+
+def mOS2mSI(
+    m_os: float,
+    mq,
+    asM: float,
+    nf: int,
+    loops: int,
+    fdelm: float = 1.0,
+) -> float:
+    """Convert OS mass to the self-invariant MS-bar mass m_MS(m_MS).
+
+    Computes m_MS(m_MS) from the on-shell mass m_OS and αs(m_OS) using
+    the direct perturbative relation (C++ CRunDec::mOS2mSI).
+
+    Parameters
+    ----------
+    m_os : float
+        On-shell (pole) mass M_OS.
+    mq : sequence of (mass, scale) pairs or None
+        Light-quark masses for the sub-leading light-quark corrections.
+    asM : float
+        Strong coupling αs(M_OS) evaluated at the on-shell mass scale.
+    nf : int
+        Number of active quark flavours.
+    loops : int
+        Perturbative order (0..4).
+    fdelm : float, optional
+        Factor multiplying the non-logarithmic part of the 4-loop term
+        (default 1).
+
+    Returns
+    -------
+    float
+        The self-invariant MS-bar mass m_MS^{(nf)}(m_MS).
+    """
+    if loops < 0 or loops > 4:
+        raise ValueError(f"mOS2mSI: loops must be 0..4, got {loops}")
+    if loops == 4 and (nf < 4 or nf > 6):
+        raise ValueError("mOS2mSI: 4-loop result only implemented for nf=4..6")
+
+    nl = nf - 1  # number of light quarks
+    deltalight = _deltamOS2mMS(m_os, mq, asM / _PI, m_os, nl, loops)
+
+    sum_terms = [0.0] * 5
+    sum_terms[0] = 1.0
+    sum_terms[1] = asM * _fMumFromOs1() / _PI
+    sum_terms[2] = asM * asM * _fMumFromOs2(nl) / (_PI * _PI)
+    sum_terms[3] = asM**3 * _fMumFromOs3(nl) / (_PI**3)
+    sum_terms[4] = asM**4 * _fMumFromOs4(nl, fdelm) / (_PI**4)
 
     if loops == 0:
         erg = 1.0
