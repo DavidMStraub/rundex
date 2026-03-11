@@ -575,8 +575,13 @@ def AlphasExact(
         t1=t1,
         dt0=dt0,
         y0=y0,
-        stepsize_controller=PIDController(rtol=1e-10, atol=1e-12),
-        max_steps=10_000,
+        # Tolerances matched to CRunDec's custom RK stepper (eps=1e-10 absolute).
+        # With api = αs/π ≈ 0.07 the PID error norm is
+        #   |err| / (1e-10 + |y|·1e-8) ≈ |err| / 8e-10,
+        # which is essentially equivalent to CRunDec's |yerr| < 1e-10 criterion.
+        # RunDec.m uses MaxSteps=1500; 2000 is safe headroom.
+        stepsize_controller=PIDController(rtol=1e-8, atol=1e-10),
+        max_steps=2_000,
     )
     return sol.ys[-1] * jnp.pi  # type: ignore[index]
 
