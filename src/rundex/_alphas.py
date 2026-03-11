@@ -28,7 +28,7 @@ Conventions
 from collections.abc import Iterable, Mapping, Sequence
 from collections.abc import Iterable as IterableABC
 from dataclasses import dataclass
-from typing import Any, cast
+from typing import Any, Protocol, TypeAlias, cast
 
 import jax
 import jax.numpy as jnp
@@ -40,6 +40,15 @@ from diffrax import (
 )
 
 from ._coeffs import beta0, beta1, beta2, beta3, beta4
+
+Scalar: TypeAlias = float | jax.Array
+
+
+class _DecLike(Protocol):
+    nf: int
+    Mth: float
+    muth: float
+
 
 # Minimum μ/Λ ratio before a warning is printed (matches Mathematica default)
 _RMULAM = 1.5
@@ -81,7 +90,8 @@ def _normalize_decpar(decpar: Iterable[object]) -> list[Decoupling]:
         else:
             nf = getattr(item, "nf", None)
             if nf is not None:
-                dec = Decoupling(int(nf), float(item.Mth), float(item.muth))
+                dec_item = cast(_DecLike, item)
+                dec = Decoupling(int(nf), float(dec_item.Mth), float(dec_item.muth))
             else:
                 if not isinstance(item, IterableABC):
                     raise ValueError("decpar entries must be iterable (nf, Mth, muth)")
@@ -94,11 +104,11 @@ def _normalize_decpar(decpar: Iterable[object]) -> list[Decoupling]:
     return entries
 
 
-def _fas5to6os(api: float, mass: float, mu: float, nlq: float, loops: int) -> float:
+def _fas5to6os(api: Scalar, mass: float, mu: float, nlq: float, loops: int) -> Scalar:
     lmM = jnp.log((mu * mu) / (mass * mass))
     if loops == 1:
         return 1.0
-    sum_terms = [0.0] * 5
+    sum_terms: list[Scalar] = [0.0] * 5
     sum_terms[0] = 1.0
     sum_terms[1] = api * (-lmM) / 6.0
     sum_terms[2] = api**2 * (-7.0 / 24.0 - (19.0 * lmM) / 24.0 + (lmM * lmM) / 36.0)
@@ -174,17 +184,17 @@ def _fas5to6os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
         )
         - (40596749.0 * _ZETA5) / 1451520.0
     )
-    total = 0.0
+    total: Scalar = 0.0
     for i in range(loops):
         total += sum_terms[i]
     return total
 
 
-def _fas6to5os(api: float, mass: float, mu: float, nlq: float, loops: int) -> float:
+def _fas6to5os(api: Scalar, mass: float, mu: float, nlq: float, loops: int) -> Scalar:
     lmM = jnp.log((mu * mu) / (mass * mass))
     if loops == 1:
         return 1.0
-    sum_terms = [0.0] * 5
+    sum_terms: list[Scalar] = [0.0] * 5
     sum_terms[0] = 1.0
     sum_terms[1] = api * (lmM) / 6.0
     sum_terms[2] = api**2 * (7.0 / 24.0 + (19.0 * lmM) / 24.0 + (lmM * lmM) / 36.0)
@@ -260,20 +270,20 @@ def _fas6to5os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
         )
         + (40596749.0 * _ZETA5) / 1451520.0
     )
-    total = 0.0
+    total: Scalar = 0.0
     for i in range(loops):
         total += sum_terms[i]
     return total
 
 
-def DecAsDownOS(alphas: float, massth: float, muth: float, nf: int, loops: int) -> jax.Array:
+def DecAsDownOS(alphas: Scalar, massth: float, muth: float, nf: int, loops: int) -> Scalar:
     if not 1 <= loops <= 5:
         raise ValueError(f"DecAsDownOS: loops must be 1..5, got {loops}")
     api = alphas / _PI
     return alphas * _fas5to6os(api, massth, muth, float(nf), loops)
 
 
-def DecAsUpOS(alphas: float, massth: float, muth: float, nf: int, loops: int) -> jax.Array:
+def DecAsUpOS(alphas: Scalar, massth: float, muth: float, nf: int, loops: int) -> Scalar:
     if not 1 <= loops <= 5:
         raise ValueError(f"DecAsUpOS: loops must be 1..5, got {loops}")
     api = alphas / _PI
@@ -373,7 +383,7 @@ def LamExpl(alphas: float, mu: float, nf: int, loops: int) -> jax.Array:
 
     # log(Λ/μ) = −½ · log(μ²/Λ²), accumulated term by term.
     # Each term is labelled with the loop order at which it first appears.
-    lamomu = -1.0 / (2.0 * api * b0)  # 1-loop
+    lamomu: Scalar = -1.0 / (2.0 * api * b0)  # 1-loop
 
     if loops >= 2:
         # The log(as) + log(b0) = log(as·b0) term from logmu2lam2
@@ -439,14 +449,14 @@ def LamImpl(alphas: float, mu: float, nf: int, loops: int) -> jax.Array:
         L = jnp.log(mu**2 / lam**2)
         return _api_from_L(L, b0, b1, b2, b3, b4, loops) - target_api
 
-    def body(state):
+    def body(state: tuple[jax.Array, jax.Array, int]) -> tuple[jax.Array, jax.Array, int]:
         lam, _, i = state
         f_val = equation(lam)
         df_val = jax.grad(equation)(lam)
         lam_new = lam - f_val / df_val
         return lam_new, equation(lam_new), i + 1
 
-    def cond(state):
+    def cond(state: tuple[jax.Array, jax.Array, int]) -> jax.Array:
         _, f_val, i = state
         return (jnp.abs(f_val) > 1e-14) & (i < 50)
 
@@ -502,7 +512,7 @@ def AlphasLam(lam: float, mu: float, nf: int, loops: int) -> jax.Array:
 
 
 def AlphasExact(
-    alphas0: float,
+    alphas0: Scalar,
     mu0: float,
     mu: float,
     nf: int,
@@ -562,23 +572,23 @@ def AlphasExact(
     # under jax.jit with static nf/loops.
     if loops == 1:
 
-        def _rhs(t, api, args):
+        def _rhs(t: jax.Array, api: jax.Array, args: object) -> jax.Array:
             return -(api**2) * b0
     elif loops == 2:
 
-        def _rhs(t, api, args):
+        def _rhs(t: jax.Array, api: jax.Array, args: object) -> jax.Array:
             return -(api**2) * (b0 + b1 * api)
     elif loops == 3:
 
-        def _rhs(t, api, args):
+        def _rhs(t: jax.Array, api: jax.Array, args: object) -> jax.Array:
             return -(api**2) * (b0 + b1 * api + b2 * api**2)
     elif loops == 4:
 
-        def _rhs(t, api, args):
+        def _rhs(t: jax.Array, api: jax.Array, args: object) -> jax.Array:
             return -(api**2) * (b0 + b1 * api + b2 * api**2 + b3 * api**3)
     else:  # loops == 5
 
-        def _rhs(t, api, args):
+        def _rhs(t: jax.Array, api: jax.Array, args: object) -> jax.Array:
             return -(api**2) * (b0 + b1 * api + b2 * api**2 + b3 * api**3 + b4 * api**4)
 
     y0 = jnp.asarray(alphas0 / jnp.pi)
@@ -587,7 +597,7 @@ def AlphasExact(
     dt0 = (t1 - t0) / 100.0  # initial step, sign matches integration direction
 
     sol = diffeqsolve(
-        ODETerm(_rhs),
+        ODETerm(_rhs),  # type: ignore[arg-type]
         Dopri5(),
         t0=t0,
         t1=t1,
@@ -638,7 +648,7 @@ def AlL2AlH(
     entries = sorted(entries, key=lambda d: d.nf)
     _check_consecutive_nfs([d.nf for d in entries], direction=1)
 
-    asini = alphas_low
+    asini: Scalar = alphas_low
     muini = mu1
     for dec in entries:
         as_at_muth = AlphasExact(asini, muini, dec.muth, nf=dec.nf - 1, loops=loops)
@@ -671,7 +681,7 @@ def AlH2AlL(
     entries = sorted(entries, key=lambda d: d.nf, reverse=True)
     _check_consecutive_nfs([d.nf for d in entries], direction=-1)
 
-    asini = alphas_high
+    asini: Scalar = alphas_high
     muini = mu1
     for dec in entries:
         as_at_muth = AlphasExact(asini, muini, dec.muth, nf=dec.nf, loops=loops)

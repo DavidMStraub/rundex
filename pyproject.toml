@@ -14,6 +14,7 @@ readme = "README.md"
 dependencies = [
     "jax>=0.4",
     "diffrax>=0.4",
+    "jaxtyping",
 ]
 
 [project.optional-dependencies]
@@ -42,6 +43,7 @@ select = [
 ]
 ignore = [
     "E741",  # ambiguous variable name (l, O, I) — physics code uses 'l' for loops
+    "F722",   # jaxtyping multi-dimensional shapes trigger F722; safe to disable globally
 ]
 
 [tool.ruff.lint.per-file-ignores]

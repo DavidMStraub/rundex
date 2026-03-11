@@ -16,7 +16,9 @@ Conventions
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import TypeAlias
 
+import jax
 import jax.numpy as jnp
 from jax.scipy.special import spence
 
@@ -55,15 +57,19 @@ _TR = 0.5
 _A4 = 0.51747906167389938633
 _A5 = 0.50840057924226870746
 
+Scalar: TypeAlias = float | jax.Array
 
-def _polylog2(x):
+
+def _polylog2(x: Scalar) -> jax.Array:
     x_arr = jnp.asarray(x)
     return spence(1.0 - x_arr)
 
 
-def _normalize_mq(mq):
+def _normalize_mq(mq: object) -> list[tuple[float, float]]:
     if mq is None:
         return []
+    if not isinstance(mq, Iterable):
+        raise ValueError("mq must be an iterable of (mass, scale) pairs")
     out = []
     for item in mq:
         if item is None:
@@ -71,6 +77,8 @@ def _normalize_mq(mq):
         if hasattr(item, "first") and hasattr(item, "second"):
             out.append((float(item.first), float(item.second)))
         else:
+            if not isinstance(item, Iterable):
+                raise ValueError("mq entries must be iterable (mass, scale)")
             pair = list(item)
             if len(pair) != 2:
                 raise ValueError("mq entries must be (mass, scale)")
@@ -89,12 +97,12 @@ def _mass_coeffs(nf: int) -> tuple[list[float], list[float]]:
     return b, c
 
 
-def _fsetcx(x: float, loops: int, nf: int) -> float:
+def _fsetcx(x: Scalar, loops: int, nf: int) -> Scalar:
     b, c = _mass_coeffs(nf)
     b1, b2, b3, b4 = b[1], b[2], b[3], b[4]
     c0, c1, c2, c3, c4 = c[0], c[1], c[2], c[3], c[4]
 
-    sum_terms = [0.0] * 5
+    sum_terms: list[Scalar] = [0.0] * 5
     sum_terms[0] = 1.0
     sum_terms[1] = (c1 - b1 * c0) * x
     sum_terms[2] = 0.5 * ((c1 - b1 * c0) ** 2 + c2 - b1 * c1 + b1 * b1 * c0 - b2 * c0) * (x * x)
@@ -126,18 +134,18 @@ def _fsetcx(x: float, loops: int, nf: int) -> float:
         + c4 / 4.0
     ) * (x * x * x * x)
 
-    erg = 0.0
+    erg: Scalar = 0.0
     for i in range(loops):
         erg += sum_terms[i]
     return (x**c0) * erg
 
 
-def _fMsFromOs1(mu: float, m_os: float) -> float:
+def _fMsFromOs1(mu: float, m_os: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_os * m_os))
     return -_CF - (3.0 * _CF * lmM) / 4.0
 
 
-def _fMsFromOs2(mu: float, m_os: float, nl: float) -> float:
+def _fMsFromOs2(mu: float, m_os: float, nl: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_os * m_os))
     return (
         (-1111.0 * _CA * _CF) / 384.0
@@ -163,7 +171,7 @@ def _fMsFromOs2(mu: float, m_os: float, nl: float) -> float:
     )
 
 
-def _fMsFromOs3(mu: float, m_os: float, nl: float) -> float:
+def _fMsFromOs3(mu: float, m_os: float, nl: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_os * m_os))
     return (
         (
@@ -242,7 +250,7 @@ def _fMsFromOs3(mu: float, m_os: float, nl: float) -> float:
     )
 
 
-def _fZmM(nl: float) -> float:
+def _fZmM(nl: float) -> Scalar:
     return (
         -9478333.0 / 93312.0
         + 55.0 * _LOG2**4 / 162.0
@@ -265,7 +273,7 @@ def _fZmM(nl: float) -> float:
     )
 
 
-def _fMsFromOs4(mu: float, m_os: float, nl: float, err: float) -> float:
+def _fMsFromOs4(mu: float, m_os: float, nl: float, err: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_os * m_os))
     return (
         -3654.15040757339 * err
@@ -303,7 +311,7 @@ def _fMsFromOs4(mu: float, m_os: float, nl: float, err: float) -> float:
     )
 
 
-def _fZmInvM(nl: float) -> float:
+def _fZmInvM(nl: float) -> Scalar:
     return (
         8481925.0 / 93312.0
         + (137.0 * nl) / 216.0
@@ -341,11 +349,11 @@ def _fZmInvM(nl: float) -> float:
 # ---------------------------------------------------------------------------
 
 
-def _fMumFromOs1() -> float:
+def _fMumFromOs1() -> Scalar:
     return -_CF
 
 
-def _fMumFromOs2(nl: float) -> float:
+def _fMumFromOs2(nl: float) -> Scalar:
     """2-loop SI coefficient (nl = nf-1 = number of light quarks)."""
     return (
         (-1111.0 * _CA * _CF) / 384.0
@@ -363,7 +371,7 @@ def _fMumFromOs2(nl: float) -> float:
     )
 
 
-def _fMumFromOs3(nl: float) -> float:
+def _fMumFromOs3(nl: float) -> Scalar:
     """3-loop SI coefficient (nl = nf-1 = number of light quarks)."""
     return (
         -7172965.0 / 93312.0
@@ -393,7 +401,7 @@ def _fMumFromOs3(nl: float) -> float:
     )
 
 
-def _fMumFromOs4(nl: float, fdelm: float) -> float:
+def _fMumFromOs4(nl: float, fdelm: float) -> Scalar:
     """4-loop SI coefficient (nl = nf-1 = number of light quarks)."""
     return fdelm * (
         -3214.227044839041
@@ -403,12 +411,12 @@ def _fMumFromOs4(nl: float, fdelm: float) -> float:
     )
 
 
-def _fOsFromMs1(mu: float, m_ms: float) -> float:
+def _fOsFromMs1(mu: float, m_ms: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_ms * m_ms))
     return _CF + (3.0 * _CF * lmM) / 4.0
 
 
-def _fOsFromMs2(mu: float, m_ms: float, nl: float) -> float:
+def _fOsFromMs2(mu: float, m_ms: float, nl: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_ms * m_ms))
     return (
         (1111.0 * _CA * _CF) / 384.0
@@ -441,7 +449,7 @@ def _fOsFromMs2(mu: float, m_ms: float, nl: float) -> float:
     )
 
 
-def _fOsFromMs3(mu: float, m_ms: float, nl: float) -> float:
+def _fOsFromMs3(mu: float, m_ms: float, nl: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_ms * m_ms))
     return (
         lmM**3
@@ -511,7 +519,7 @@ def _fOsFromMs3(mu: float, m_ms: float, nl: float) -> float:
     )
 
 
-def _fOsFromMs4(mu: float, m_ms: float, nl: float, err: float) -> float:
+def _fOsFromMs4(mu: float, m_ms: float, nl: float, err: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_ms * m_ms))
     return (
         3567.602784989066 * err
@@ -549,11 +557,11 @@ def _fOsFromMs4(mu: float, m_ms: float, nl: float, err: float) -> float:
     )
 
 
-def _deltamOS2mMS(m_os: float, mq, asmu: float, mu: float, nlq: int, loops: int) -> float:
+def _deltamOS2mMS(m_os: float, mq: object, asmu: Scalar, mu: float, nlq: int, loops: int) -> Scalar:
     mq_list = _normalize_mq(mq)
     if not mq_list:
         return 0.0
-    erg = 0.0
+    erg: Scalar = 0.0
     for i, (mqi, muf) in enumerate(mq_list):
         x = mqi / m_os
         nl = nlq - i
@@ -616,12 +624,12 @@ def _deltamOS2mMS(m_os: float, mq, asmu: float, mu: float, nlq: int, loops: int)
     return erg
 
 
-def _deltamMS2mOS(m_ms: float, mq, asmu: float, mu: float, nlq: int, loops: int) -> float:
+def _deltamMS2mOS(m_ms: float, mq: object, asmu: Scalar, mu: float, nlq: int, loops: int) -> Scalar:
     mq_list = _normalize_mq(mq)
     if not mq_list:
         return 0.0
     lmu = jnp.log(mu * mu / (m_ms * m_ms))
-    erg = 0.0
+    erg: Scalar = 0.0
     for i, (mqi, muf) in enumerate(mq_list):
         x = mqi / m_ms
         nl = nlq - i
@@ -705,11 +713,11 @@ def _deltamMS2mOS(m_ms: float, mq, asmu: float, mu: float, nlq: int, loops: int)
     return erg
 
 
-def _fmq6to5os(api: float, mass: float, mu: float, nlq: float, loops: int) -> float:
+def _fmq6to5os(api: Scalar, mass: float, mu: float, nlq: float, loops: int) -> Scalar:
     lmM = jnp.log((mu * mu) / (mass * mass))
     if loops == 1:
         return 1.0
-    sum_terms = [0.0] * 5
+    sum_terms: list[Scalar] = [0.0] * 5
     sum_terms[0] = 1.0
     sum_terms[1] = 0.0
     sum_terms[2] = -api * api * (89.0 / 432.0 - (5.0 * lmM) / 36.0 + lmM * lmM / 12.0)
@@ -803,17 +811,17 @@ def _fmq6to5os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
         )
         + (59015.0 * _ZETA5) / 1728.0
     )
-    total = 0.0
+    total: Scalar = 0.0
     for i in range(loops):
         total += sum_terms[i]
     return total
 
 
-def _fmq5to6os(api: float, mass: float, mu: float, nlq: float, loops: int) -> float:
+def _fmq5to6os(api: Scalar, mass: float, mu: float, nlq: float, loops: int) -> Scalar:
     lmM = jnp.log((mu * mu) / (mass * mass))
     if loops == 1:
         return 1.0
-    sum_terms = [0.0] * 5
+    sum_terms: list[Scalar] = [0.0] * 5
     sum_terms[0] = 1.0
     sum_terms[1] = 0.0
     sum_terms[2] = api * api * (89.0 / 432.0 - (5.0 * lmM) / 36.0 + lmM * lmM / 12.0)
@@ -892,27 +900,31 @@ def _fmq5to6os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
         + (497.0 * nlq * _ZETA5) / 288.0
         - (3935.0 * _ZETA6) / 432.0
     )
-    total = 0.0
+    total: Scalar = 0.0
     for i in range(loops):
         total += sum_terms[i]
     return total
 
 
-def DecMqUpOS(mq: float, alphas: float, massth: float, muth: float, nf: int, loops: int) -> float:
+def DecMqUpOS(
+    mq: Scalar, alphas: Scalar, massth: float, muth: float, nf: int, loops: int
+) -> Scalar:
     if not 1 <= loops <= 5:
         raise ValueError(f"DecMqUpOS: loops must be 1..5, got {loops}")
     api = alphas / _PI
     return mq * _fmq6to5os(api, massth, muth, float(nf), loops)
 
 
-def DecMqDownOS(mq: float, alphas: float, massth: float, muth: float, nf: int, loops: int) -> float:
+def DecMqDownOS(
+    mq: Scalar, alphas: Scalar, massth: float, muth: float, nf: int, loops: int
+) -> Scalar:
     if not 1 <= loops <= 5:
         raise ValueError(f"DecMqDownOS: loops must be 1..5, got {loops}")
     api = alphas / _PI
     return mq * _fmq5to6os(api, massth, muth, float(nf), loops)
 
 
-def mMS2mMS(mmu0: float, alphas0: float, alphas1: float, nf: int, loops: int) -> float:
+def mMS2mMS(mmu0: Scalar, alphas0: Scalar, alphas1: Scalar, nf: int, loops: int) -> Scalar:
     r"""Run the MS-bar mass between two scales using αs at those scales.
 
     Parameters
@@ -947,7 +959,7 @@ def mL2mH(
     decpar: Iterable[object],
     mu2: float,
     loops: int,
-) -> float:
+) -> Scalar:
     """Run MS-bar mass from low to high scale with decoupling at thresholds."""
     if not 1 <= loops <= 5:
         raise ValueError(f"mL2mH: loops must be 1..5, got {loops}")
@@ -959,9 +971,9 @@ def mL2mH(
     entries = sorted(entries, key=lambda d: d.nf)
     _check_consecutive_nfs([d.nf for d in entries], direction=1)
 
-    asini = alphas_low
+    asini: Scalar = alphas_low
     muini = mu1
-    mqini = mql
+    mqini: Scalar = mql
     for dec in entries:
         as_at_muth = AlphasExact(asini, muini, dec.muth, nf=dec.nf - 1, loops=loops)
         mq_at_muth = mMS2mMS(mqini, asini, as_at_muth, nf=dec.nf - 1, loops=loops)
@@ -980,7 +992,7 @@ def mH2mL(
     decpar: Iterable[object],
     mu2: float,
     loops: int,
-) -> float:
+) -> Scalar:
     """Run MS-bar mass from high to low scale with decoupling at thresholds."""
     if not 1 <= loops <= 5:
         raise ValueError(f"mH2mL: loops must be 1..5, got {loops}")
@@ -992,9 +1004,9 @@ def mH2mL(
     entries = sorted(entries, key=lambda d: d.nf, reverse=True)
     _check_consecutive_nfs([d.nf for d in entries], direction=-1)
 
-    asini = alphas_high
+    asini: Scalar = alphas_high
     muini = mu1
-    mqini = mqh
+    mqini: Scalar = mqh
     for dec in entries:
         as_at_muth = AlphasExact(asini, muini, dec.muth, nf=dec.nf, loops=loops)
         mq_at_muth = mMS2mMS(mqini, asini, as_at_muth, nf=dec.nf, loops=loops)
@@ -1008,13 +1020,13 @@ def mH2mL(
 
 def mOS2mMS(
     m_os: float,
-    mq,
-    alphas: float,
+    mq: object,
+    alphas: Scalar,
     mu: float,
     nf: int,
     loops: int,
     fdelm: float = 1.0,
-) -> float:
+) -> Scalar:
     if loops < 0 or loops > 4:
         raise ValueError(f"mOS2mMS: loops must be 0..4, got {loops}")
     if loops == 4 and (nf < 4 or nf > 6):
@@ -1022,16 +1034,15 @@ def mOS2mMS(
 
     deltalight = _deltamOS2mMS(m_os, mq, alphas / _PI, mu, nf - 1, loops)
 
-    sum_terms = [0.0] * 5
+    sum_terms: list[Scalar] = [0.0] * 5
     sum_terms[0] = 1.0
     sum_terms[1] = alphas * _fMsFromOs1(mu, m_os) / _PI
     sum_terms[2] = alphas * alphas * _fMsFromOs2(mu, m_os, nf - 1) / (_PI * _PI)
     sum_terms[3] = alphas**3 * (_fMsFromOs3(mu, m_os, nf - 1) + _fZmM(nf - 1)) / (_PI**3)
     sum_terms[4] = alphas**4 * _fMsFromOs4(mu, m_os, nf - 1, fdelm) / (_PI**4)
 
-    if loops == 0:
-        erg = 1.0
-    else:
+    erg: Scalar = 1.0
+    if loops != 0:
         erg = 0.0
         for i in range(loops + 1):
             erg += sum_terms[i]
@@ -1041,12 +1052,12 @@ def mOS2mMS(
 
 def mOS2mSI(
     m_os: float,
-    mq,
-    asM: float,
+    mq: object,
+    asM: Scalar,
     nf: int,
     loops: int,
     fdelm: float = 1.0,
-) -> float:
+) -> Scalar:
     """Convert OS mass to the self-invariant MS-bar mass m_MS(m_MS).
 
     Computes m_MS(m_MS) from the on-shell mass m_OS and αs(m_OS) using
@@ -1081,16 +1092,15 @@ def mOS2mSI(
     nl = nf - 1  # number of light quarks
     deltalight = _deltamOS2mMS(m_os, mq, asM / _PI, m_os, nl, loops)
 
-    sum_terms = [0.0] * 5
+    sum_terms: list[Scalar] = [0.0] * 5
     sum_terms[0] = 1.0
     sum_terms[1] = asM * _fMumFromOs1() / _PI
     sum_terms[2] = asM * asM * _fMumFromOs2(nl) / (_PI * _PI)
     sum_terms[3] = asM**3 * _fMumFromOs3(nl) / (_PI**3)
     sum_terms[4] = asM**4 * _fMumFromOs4(nl, fdelm) / (_PI**4)
 
-    if loops == 0:
-        erg = 1.0
-    else:
+    erg: Scalar = 1.0
+    if loops != 0:
         erg = 0.0
         for i in range(loops + 1):
             erg += sum_terms[i]
@@ -1100,13 +1110,13 @@ def mOS2mSI(
 
 def mMS2mOS(
     m_ms: float,
-    mq,
-    alphas: float,
+    mq: object,
+    alphas: Scalar,
     mu: float,
     nf: int,
     loops: int,
     fdelm: float = 1.0,
-) -> float:
+) -> Scalar:
     if loops < 0 or loops > 4:
         raise ValueError(f"mMS2mOS: loops must be 0..4, got {loops}")
     if loops == 4 and (nf < 4 or nf > 6):
@@ -1114,16 +1124,15 @@ def mMS2mOS(
 
     deltalight = _deltamMS2mOS(m_ms, mq, alphas / _PI, mu, nf - 1, loops)
 
-    sum_terms = [0.0] * 5
+    sum_terms: list[Scalar] = [0.0] * 5
     sum_terms[0] = 1.0
     sum_terms[1] = alphas * _fOsFromMs1(mu, m_ms) / _PI
     sum_terms[2] = alphas * alphas * _fOsFromMs2(mu, m_ms, nf - 1) / (_PI * _PI)
     sum_terms[3] = alphas**3 * (_fOsFromMs3(mu, m_ms, nf - 1) + _fZmInvM(nf - 1)) / (_PI**3)
     sum_terms[4] = alphas**4 * _fOsFromMs4(mu, m_ms, nf - 1, fdelm) / (_PI**4)
 
-    if loops == 0:
-        erg = 1.0
-    else:
+    erg: Scalar = 1.0
+    if loops != 0:
         erg = 0.0
         for i in range(loops + 1):
             erg += sum_terms[i]
@@ -1133,13 +1142,13 @@ def mMS2mOS(
 
 def mMS2m1S(
     m_ms: float,
-    mq,
-    alphas: float,
+    mq: object,
+    alphas: Scalar,
     mu: float,
     nl: int,
     loops: int,
     fdelm: float = 1.0,
-) -> float:
+) -> Scalar:
     if loops < 0 or loops > 4:
         raise ValueError(f"mMS2m1S: loops must be 0..4, got {loops}")
     if nl < 3 or nl > 5:
@@ -1148,7 +1157,7 @@ def mMS2m1S(
     lmm = jnp.log(mu * mu / (m_ms * m_ms))
     log34 = jnp.log((3.0 * mu) / (4.0 * alphas * m_ms))
 
-    m1s = m_ms
+    m1s: Scalar = m_ms
     if loops == 0:
         return m1s
     if loops == 1:
