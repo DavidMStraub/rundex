@@ -16,7 +16,15 @@ from ._alphas import (
     LamExpl,
     LamImpl,
 )
-from ._masses import DecMqDownOS, DecMqUpOS, mH2mL, mL2mH, mMS2mMS
+from ._masses import (
+    DecMqDownOS,
+    DecMqUpOS,
+    mH2mL,
+    mL2mH,
+    mMS2mMS,
+    mMS2mOS,
+    mOS2mMS,
+)
 
 __all__ = [
     "LamExpl",
@@ -27,6 +35,8 @@ __all__ = [
     "AlL2AlH",
     "AlH2AlL",
     "mMS2mMS",
+    "mMS2mOS",
+    "mOS2mMS",
     "DecMqUpOS",
     "DecMqDownOS",
     "mL2mH",
