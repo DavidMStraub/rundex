@@ -1,24 +1,32 @@
-"""
-RunDec — JAX port of the Mathematica package RunDec v3.1
-(running and decoupling of the strong coupling and quark masses)
+"""RunDec public package API."""
 
-Original authors: K.G. Chetyrkin, J.H. Kühn, M. Steinhauser,
-                  F. Herren, M. Steinhauser
-References: hep-ph/0004189, arXiv:1703.03751
-"""
+from importlib.metadata import PackageNotFoundError, version
 
-from ._alphas import (
+from ._api import (
     AlH2AlL,
     AlL2AlH,
     AlphasExact,
     AlphasLam,
+    DecMqDownOS,
+    DecMqUpOS,
     Decoupling,
     LamExpl,
     LamImpl,
-)
-from ._masses import (
-    DecMqDownOS,
-    DecMqUpOS,
+    compiled_AlH2AlL,
+    compiled_AlL2AlH,
+    compiled_AlphasExact,
+    compiled_AlphasLam,
+    compiled_DecMqDownOS,
+    compiled_DecMqUpOS,
+    compiled_LamExpl,
+    compiled_LamImpl,
+    compiled_mH2mL,
+    compiled_mL2mH,
+    compiled_mMS2m1S,
+    compiled_mMS2mMS,
+    compiled_mMS2mOS,
+    compiled_mOS2mMS,
+    compiled_mOS2mSI,
     mH2mL,
     mL2mH,
     mMS2m1S,
@@ -45,5 +53,24 @@ __all__ = [
     "DecMqDownOS",
     "mL2mH",
     "mH2mL",
+    "compiled_LamExpl",
+    "compiled_LamImpl",
+    "compiled_AlphasLam",
+    "compiled_AlphasExact",
+    "compiled_AlL2AlH",
+    "compiled_AlH2AlL",
+    "compiled_DecMqUpOS",
+    "compiled_DecMqDownOS",
+    "compiled_mL2mH",
+    "compiled_mH2mL",
+    "compiled_mMS2mMS",
+    "compiled_mMS2mOS",
+    "compiled_mMS2m1S",
+    "compiled_mOS2mMS",
+    "compiled_mOS2mSI",
 ]
-__version__ = "3.1.0"
+
+try:
+    __version__ = version("rundex")
+except PackageNotFoundError:
+    __version__ = "0+unknown"

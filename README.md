@@ -31,6 +31,11 @@ als = AlphasLam(lam, mu=1000.0, nf=5, loops=5)
 
 # αs(μ) by numerically integrating the RGE
 als = AlphasExact(0.118, mu0=91.18, mu=1000.0, nf=5, loops=5)
+
+# Optional: compile once for fixed (nf, loops) to avoid retracing
+from rundex import compiled_AlphasExact
+alphas_exact_5l_nf5 = compiled_AlphasExact(nf=5, loops=5)
+als_fast = alphas_exact_5l_nf5(0.118, 91.18, 1000.0)
 ```
 
 > **Note on 64-bit precision**  
@@ -38,16 +43,6 @@ als = AlphasExact(0.118, mu0=91.18, mu=1000.0, nf=5, loops=5)
 > `jax.config.update("jax_enable_x64", True)` **before** importing or calling
 > any `rundex` function. The package itself does not set this flag so it does
 > not interfere with the rest of your JAX code.
-
-
-## Conventions
-
-- Scales (μ, Λ) in GeV.
-- `nf` is a plain Python `int` and is never JAX-traced.
-- `loops` is a plain Python `int`.
-- The β-function is  
-  $\mu^2 \frac{d\alpha_s}{d\mu^2} = -\alpha_s^2 (b_0 + b_1 \alpha_s + \cdots)$  
-  with $\alpha_s \equiv \alpha_s$ (not $\alpha_s/\pi$).
 
 ## Development
 
@@ -58,3 +53,54 @@ pytest
 ```
 
 Numerical tests are cross-validated against [rundec-python](https://github.com/apaasch/rundec-python) (CRunDec C++ wrapper), which is a test-only dependency not required by rundex itself.
+
+## Implemented RunDec functions (subset)
+
+The following RunDec functions are currently ported to `rundex`:
+
+- `LamExpl`
+- `LamImpl`
+- `AlphasLam`
+- `AlphasExact`
+- `AlL2AlH`
+- `AlH2AlL`
+- `mMS2mMS`
+- `mMS2mOS`
+- `mMS2m1S`
+- `mOS2mMS`
+- `mOS2mSI`
+- `DecMqUpOS`
+- `DecMqDownOS`
+- `mL2mH`
+- `mH2mL`
+
+Not all RunDec functionality is ported yet.
+
+## Compiled helpers (available for all ported functions)
+
+Each ported function above has a compiled helper named `compiled_<FunctionName>`.
+Use these when you call the same function many times with fixed discrete
+settings (for example fixed `nf`, `loops`, and fixed threshold/light-quark data).
+
+Examples:
+
+- `compiled_LamExpl(nf, loops)`
+- `compiled_LamImpl(nf, loops)`
+- `compiled_AlphasLam(nf, loops)`
+- `compiled_AlphasExact(nf, loops)`
+- `compiled_AlL2AlH(decpar, loops)`
+- `compiled_AlH2AlL(decpar, loops)`
+- `compiled_mMS2mMS(nf, loops)`
+- `compiled_mMS2mOS(nf, loops, mq=None, fdelm=1.0)`
+- `compiled_mMS2m1S(nl, loops, mq=None, fdelm=1.0)`
+- `compiled_mOS2mMS(nf, loops, mq=None, fdelm=1.0)`
+- `compiled_mOS2mSI(nf, loops, mq=None, fdelm=1.0)`
+- `compiled_DecMqUpOS(nf, loops)`
+- `compiled_DecMqDownOS(nf, loops)`
+- `compiled_mL2mH(decpar, loops)`
+- `compiled_mH2mL(decpar, loops)`
+
+When to use which:
+
+- Use regular functions for one-off calls or frequently changing setup parameters.
+- Use compiled helpers for repeated calls with fixed setup parameters.

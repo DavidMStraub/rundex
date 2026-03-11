@@ -24,6 +24,12 @@ test = [
   "ruff",
   "pre-commit",
 ]
+dev = [
+  "pytest",
+  "mypy",
+  "ruff",
+  "pre-commit",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
