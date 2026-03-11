@@ -25,9 +25,9 @@ Conventions
   are declared static.
 """
 
-import math
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from collections.abc import Iterable as IterableABC
+from typing import Iterable, Mapping, Sequence, Any, cast
 
 import jax
 import jax.numpy as jnp
@@ -38,8 +38,6 @@ from diffrax import (
     Dopri5,
     diffeqsolve,
 )
-from scipy.optimize import newton
-
 from ._coeffs import beta0, beta1, beta2, beta3, beta4
 
 # Minimum μ/Λ ratio before a warning is printed (matches Mathematica default)
@@ -49,20 +47,15 @@ _RMULAM = 1.5
 # Decoupling constants for αs across heavy thresholds (OS scheme)
 # ---------------------------------------------------------------------------
 
-_PI = math.pi
-_LOG2 = math.log(2.0)
+_PI = jnp.pi
+_LOG2 = jnp.log(2.0)
 _ZETA2 = _PI * _PI / 6.0
 _ZETA3 = 1.2020569031595942854
 _ZETA4 = _PI**4 / 90.0
 _ZETA5 = 1.0369277551433699263
 
-try:
-    import mpmath as _mp
-    _A4 = float(_mp.polylog(4, 0.5))
-    _A5 = float(_mp.polylog(5, 0.5))
-except ImportError:
-    _A4 = 0.51747906167389938633
-    _A5 = 0.50840057924226870746
+_A4 = 0.51747906167389938633
+_A5 = 0.50840057924226870746
 
 
 @dataclass(frozen=True)
@@ -81,13 +74,16 @@ def _normalize_decpar(decpar: Iterable[object]) -> list[Decoupling]:
             continue
         if isinstance(item, Decoupling):
             dec = item
-        elif isinstance(item, dict):
-            dec = Decoupling(int(item["nf"]), float(item["Mth"]), float(item["muth"]))
+        elif isinstance(item, Mapping):
+            data = cast(Mapping[str, Any], item)
+            dec = Decoupling(int(data["nf"]), float(data["Mth"]), float(data["muth"]))
         else:
             nf = getattr(item, "nf", None)
             if nf is not None:
                 dec = Decoupling(int(nf), float(getattr(item, "Mth")), float(getattr(item, "muth")))
             else:
+                if not isinstance(item, IterableABC):
+                    raise ValueError("decpar entries must be iterable (nf, Mth, muth)")
                 seq = list(item)
                 if len(seq) != 3:
                     raise ValueError("decpar entries must have (nf, Mth, muth)")
@@ -98,7 +94,7 @@ def _normalize_decpar(decpar: Iterable[object]) -> list[Decoupling]:
 
 
 def _fas5to6os(api: float, mass: float, mu: float, nlq: float, loops: int) -> float:
-    lmM = math.log((mu * mu) / (mass * mass))
+    lmM = jnp.log((mu * mu) / (mass * mass))
     if loops == 1:
         return 1.0
     sum_terms = [0.0] * 5
@@ -179,7 +175,7 @@ def _fas5to6os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
 
 
 def _fas6to5os(api: float, mass: float, mu: float, nlq: float, loops: int) -> float:
-    lmM = math.log((mu * mu) / (mass * mass))
+    lmM = jnp.log((mu * mu) / (mass * mass))
     if loops == 1:
         return 1.0
     sum_terms = [0.0] * 5
@@ -259,14 +255,14 @@ def _fas6to5os(api: float, mass: float, mu: float, nlq: float, loops: int) -> fl
     return total
 
 
-def DecAsDownOS(alphas: float, massth: float, muth: float, nf: int, loops: int) -> float:
+def DecAsDownOS(alphas: float, massth: float, muth: float, nf: int, loops: int) -> jax.Array:
     if not 1 <= loops <= 5:
         raise ValueError(f"DecAsDownOS: loops must be 1..5, got {loops}")
     api = alphas / _PI
     return alphas * _fas5to6os(api, massth, muth, float(nf), loops)
 
 
-def DecAsUpOS(alphas: float, massth: float, muth: float, nf: int, loops: int) -> float:
+def DecAsUpOS(alphas: float, massth: float, muth: float, nf: int, loops: int) -> jax.Array:
     if not 1 <= loops <= 5:
         raise ValueError(f"DecAsUpOS: loops must be 1..5, got {loops}")
     api = alphas / _PI
@@ -277,15 +273,15 @@ def DecAsUpOS(alphas: float, massth: float, muth: float, nf: int, loops: int) ->
 # Helpers: αs/π as a function of L = log(μ²/Λ²)   [the setasL series]
 # ---------------------------------------------------------------------------
 
-def _api_from_L(L: float, b0: float, b1: float, b2: float,
-                b3: float, b4: float, loops: int) -> float:
+def _api_from_L(L: jax.Array, b0: float, b1: float, b2: float,
+                b3: float, b4: float, loops: int) -> jax.Array:
     """
     Evaluate the loop-expansion of αs/π = f(L) where L = log(μ²/Λ²).
 
     These are the `as0`..`as4` expressions from the Mathematica setasL
     substitution list, translated term by term.
     """
-    logL = math.log(L)
+    logL = jnp.log(L)
     # 1-loop
     result = 1.0 / (b0 * L)
     if loops == 1:
@@ -323,7 +319,7 @@ def _api_from_L(L: float, b0: float, b1: float, b2: float,
 # LamExpl
 # ---------------------------------------------------------------------------
 
-def LamExpl(alphas: float, mu: float, nf: int, loops: int) -> float:
+def LamExpl(alphas: float, mu: float, nf: int, loops: int) -> jax.Array:
     """
     Compute Λ^(nf) from αs(μ) using the explicit analytical formula.
 
@@ -356,7 +352,7 @@ def LamExpl(alphas: float, mu: float, nf: int, loops: int) -> float:
     if not 1 <= loops <= 5:
         raise ValueError(f"LamExpl: loops must be 1..5, got {loops}")
 
-    api = alphas / math.pi
+    api = alphas / jnp.pi
     b0 = beta0(nf)
     b1 = beta1(nf)
     b2 = beta2(nf)
@@ -369,7 +365,7 @@ def LamExpl(alphas: float, mu: float, nf: int, loops: int) -> float:
 
     if loops >= 2:
         # The log(as) + log(b0) = log(as·b0) term from logmu2lam2
-        lamomu += -b1 / (2.0 * b0**2) * math.log(api * b0)
+        lamomu += -b1 / (2.0 * b0**2) * jnp.log(api * b0)
 
     if loops >= 3:
         lamomu += api * (b1**2 - b0 * b2) / (2.0 * b0**3)
@@ -386,22 +382,20 @@ def LamExpl(alphas: float, mu: float, nf: int, loops: int) -> float:
             - b0**3 * b4
         ) / (6.0 * b0**5)
 
-    return mu * math.exp(lamomu)
+    return mu * jnp.exp(lamomu)
 
 
 # ---------------------------------------------------------------------------
 # LamImpl
 # ---------------------------------------------------------------------------
 
-def LamImpl(alphas: float, mu: float, nf: int, loops: int) -> float:
+def LamImpl(alphas: float, mu: float, nf: int, loops: int) -> jax.Array:
     """
     Compute Λ^(nf) from αs(μ) by numerically inverting AlphasLam.
 
     Implements the `LamImpl` function from RunDec.m (v3.1).  Uses Newton's
-    method (scipy.optimize.newton) with LamExpl as the initial guess, which
-    mirrors Mathematica's FindRoot behaviour.
-
-    Note: not JAX-differentiable.  Use LamExpl when gradients are needed.
+    method implemented via `jax.lax.while_loop` with LamExpl as the initial
+    guess, mirroring Mathematica's FindRoot behaviour.
 
     Parameters
     ----------
@@ -416,7 +410,7 @@ def LamImpl(alphas: float, mu: float, nf: int, loops: int) -> float:
 
     Returns
     -------
-    float
+    jax.Array
         Λ^(nf) in GeV.
     """
     if not 1 <= loops <= 5:
@@ -427,21 +421,35 @@ def LamImpl(alphas: float, mu: float, nf: int, loops: int) -> float:
     b2 = beta2(nf)
     b3 = beta3(nf)
     b4 = beta4(nf)
-    target_api = alphas / math.pi
+    target_api = alphas / jnp.pi
     lam0 = LamExpl(alphas, mu, nf, loops)
 
-    def equation(lam: float) -> float:
-        L = math.log(mu**2 / lam**2)
+    def equation(lam: jax.Array) -> jax.Array:
+        L = jnp.log(mu**2 / lam**2)
         return _api_from_L(L, b0, b1, b2, b3, b4, loops) - target_api
 
-    return float(newton(equation, lam0, tol=1e-14, maxiter=50))
+    def body(state):
+        lam, _, i = state
+        f_val = equation(lam)
+        df_val = jax.grad(equation)(lam)
+        lam_new = lam - f_val / df_val
+        return lam_new, equation(lam_new), i + 1
+
+    def cond(state):
+        _, f_val, i = state
+        return (jnp.abs(f_val) > 1e-14) & (i < 50)
+
+    lam_init = jnp.asarray(lam0)
+    f_init = equation(lam_init)
+    lam_sol, _, _ = jax.lax.while_loop(cond, body, (lam_init, f_init, 0))
+    return lam_sol
 
 
 # ---------------------------------------------------------------------------
 # AlphasLam
 # ---------------------------------------------------------------------------
 
-def AlphasLam(lam: float, mu: float, nf: int, loops: int) -> float:
+def AlphasLam(lam: float, mu: float, nf: int, loops: int) -> jax.Array:
     """
     Compute αs(μ) from Λ^(nf) using the explicit loop expansion.
 
@@ -467,22 +475,13 @@ def AlphasLam(lam: float, mu: float, nf: int, loops: int) -> float:
     if not 1 <= loops <= 5:
         raise ValueError(f"AlphasLam: loops must be 1..5, got {loops}")
 
-    ratio = mu / lam
-    if ratio < _RMULAM:
-        import warnings
-        warnings.warn(
-            f"AlphasLam: the ratio μ/Λ = {ratio:.4f} is very small "
-            f"(< {_RMULAM}).  Result may be unreliable.",
-            stacklevel=2,
-        )
-
     b0 = beta0(nf)
     b1 = beta1(nf)
     b2 = beta2(nf)
     b3 = beta3(nf)
     b4 = beta4(nf)
-    L = math.log(mu**2 / lam**2)
-    return math.pi * _api_from_L(L, b0, b1, b2, b3, b4, loops)
+    L = jnp.log(mu**2 / lam**2)
+    return jnp.pi * _api_from_L(L, b0, b1, b2, b3, b4, loops)
 
 
 # ---------------------------------------------------------------------------
@@ -495,7 +494,7 @@ def AlphasExact(
     mu: float,
     nf: int,
     loops: int,
-) -> float:
+) -> jax.Array:
     """
     Compute αs(μ) by integrating the RGE numerically with diffrax.
 
@@ -537,17 +536,7 @@ def AlphasExact(
     if not 1 <= loops <= 5:
         raise ValueError(f"AlphasExact: loops must be 1..5, got {loops}")
     if mu0 == mu:
-        return alphas0
-
-    # Check μ/Λ at target scale
-    lam = LamExpl(alphas0, mu0, nf, min(loops, 5))
-    if mu / lam < _RMULAM:
-        import warnings
-        warnings.warn(
-            f"AlphasExact: the ratio μ/Λ = {mu / lam:.4f} is very small "
-            f"(< {_RMULAM}).  Result may be unreliable.",
-            stacklevel=2,
-        )
+        return jnp.asarray(alphas0)
 
     b0 = beta0(nf)
     b1 = beta1(nf)
@@ -574,9 +563,9 @@ def AlphasExact(
         def _rhs(t, api, args):
             return -api**2 * (b0 + b1 * api + b2 * api**2 + b3 * api**3 + b4 * api**4)
 
-    y0 = jnp.asarray(alphas0 / math.pi)
-    t0 = math.log(mu0**2)
-    t1 = math.log(mu**2)
+    y0 = jnp.asarray(alphas0 / jnp.pi)
+    t0 = jnp.log(mu0**2)
+    t1 = jnp.log(mu**2)
     dt0 = (t1 - t0) / 100.0  # initial step, sign matches integration direction
 
     sol = diffeqsolve(
@@ -589,7 +578,7 @@ def AlphasExact(
         stepsize_controller=PIDController(rtol=1e-10, atol=1e-12),
         max_steps=10_000,
     )
-    return float(sol.ys[-1] * math.pi)
+    return sol.ys[-1] * jnp.pi  # type: ignore[index]
 
 
 # ---------------------------------------------------------------------------
@@ -608,7 +597,7 @@ def AlL2AlH(
     decpar: Iterable[object],
     mu2: float,
     loops: int,
-) -> float:
+) -> jax.Array:
     """
     Run αs from low to high scale with decoupling at thresholds (OS scheme).
 
@@ -641,7 +630,7 @@ def AlH2AlL(
     decpar: Iterable[object],
     mu2: float,
     loops: int,
-) -> float:
+) -> jax.Array:
     """
     Run αs from high to low scale with decoupling at thresholds (OS scheme).
 

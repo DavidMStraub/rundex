@@ -14,7 +14,6 @@ Physical inputs:
     αs(MZ) = 0.118,  MZ = 91.18 GeV,  nf = 5
 """
 
-import math
 import pytest
 from rundex import AlphasExact, AlphasLam, LamExpl, LamImpl
 

@@ -27,6 +27,7 @@ References
 
 import math
 
+
 # ---------------------------------------------------------------------------
 # Transcendental constants used in the coefficients
 # ---------------------------------------------------------------------------
@@ -42,13 +43,8 @@ _log2 = math.log(2)
 
 # Li_4(1/2) — needed for the constant B4
 # B4 = 16·Li₄(1/2) + (2/3)·ln²(2)² − (2/3)π²·ln²(2) − (13/180)π⁴
-try:
-    import mpmath as _mp
-    _Li4_half = float(_mp.polylog(4, 0.5))
-    _Li5_half = float(_mp.polylog(5, 0.5))
-except ImportError:
-    _Li4_half = 0.5174790616738993145  # 20 significant digits
-    _Li5_half = 0.5084005792422687014
+_Li4_half = 0.5174790616738993145  # 20 significant digits
+_Li5_half = 0.5084005792422687014
 
 _B4 = (
     16 * _Li4_half

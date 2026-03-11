@@ -23,6 +23,7 @@ from ._masses import (
     mL2mH,
     mMS2mMS,
     mMS2mOS,
+    mMS2m1S,
     mOS2mMS,
 )
 
@@ -36,6 +37,7 @@ __all__ = [
     "AlH2AlL",
     "mMS2mMS",
     "mMS2mOS",
+    "mMS2m1S",
     "mOS2mMS",
     "DecMqUpOS",
     "DecMqDownOS",
