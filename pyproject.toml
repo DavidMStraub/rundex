@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools >= 77.0.3", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rundex"
+dynamic = ["version"]
+description = "Running and decoupling of the strong coupling and quark masses (JAX port of rundex)"
+requires-python = ">=3.10"
+authors = [
+  {name = "David Straub", email = "straub@protonmail.com"},
+]
+readme = "README.md"
+dependencies = [
+    "jax>=0.4",
+    "diffrax>=0.4",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "mypy",
+  "ruff",
+  "pre-commit",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
