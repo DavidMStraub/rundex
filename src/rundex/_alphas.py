@@ -28,6 +28,7 @@ Conventions
 from collections.abc import Iterable, Mapping, Sequence
 from collections.abc import Iterable as IterableABC
 from dataclasses import dataclass
+from functools import partial
 from typing import Any, Protocol, TypeAlias, cast
 
 import jax
@@ -73,8 +74,13 @@ class Decoupling:
     """Threshold data: number of flavours, pole mass, and decoupling scale."""
 
     nf: int
-    Mth: float
-    muth: float
+    Mth: Scalar
+    muth: Scalar
+
+
+def _as_scalar(x: Any) -> Scalar:
+    """Convert to float, but pass JAX arrays (incl. tracers) through untouched."""
+    return x if isinstance(x, jax.Array) else float(x)
 
 
 def _normalize_decpar(decpar: Iterable[object]) -> list[Decoupling]:
@@ -86,25 +92,25 @@ def _normalize_decpar(decpar: Iterable[object]) -> list[Decoupling]:
             dec = item
         elif isinstance(item, Mapping):
             data = cast(Mapping[str, Any], item)
-            dec = Decoupling(int(data["nf"]), float(data["Mth"]), float(data["muth"]))
+            dec = Decoupling(int(data["nf"]), _as_scalar(data["Mth"]), _as_scalar(data["muth"]))
         else:
             nf = getattr(item, "nf", None)
             if nf is not None:
                 dec_item = cast(_DecLike, item)
-                dec = Decoupling(int(nf), float(dec_item.Mth), float(dec_item.muth))
+                dec = Decoupling(int(nf), _as_scalar(dec_item.Mth), _as_scalar(dec_item.muth))
             else:
                 if not isinstance(item, IterableABC):
                     raise ValueError("decpar entries must be iterable (nf, Mth, muth)")
                 seq = list(item)
                 if len(seq) != 3:
                     raise ValueError("decpar entries must have (nf, Mth, muth)")
-                dec = Decoupling(int(seq[0]), float(seq[1]), float(seq[2]))
+                dec = Decoupling(int(seq[0]), _as_scalar(seq[1]), _as_scalar(seq[2]))
         if dec.nf != 0:
             entries.append(dec)
     return entries
 
 
-def _fas5to6os(api: Scalar, mass: float, mu: float, nlq: float, loops: int) -> Scalar:
+def _fas5to6os(api: Scalar, mass: Scalar, mu: Scalar, nlq: float, loops: int) -> Scalar:
     lmM = jnp.log((mu * mu) / (mass * mass))
     if loops == 1:
         return 1.0
@@ -190,7 +196,7 @@ def _fas5to6os(api: Scalar, mass: float, mu: float, nlq: float, loops: int) -> S
     return total
 
 
-def _fas6to5os(api: Scalar, mass: float, mu: float, nlq: float, loops: int) -> Scalar:
+def _fas6to5os(api: Scalar, mass: Scalar, mu: Scalar, nlq: float, loops: int) -> Scalar:
     lmM = jnp.log((mu * mu) / (mass * mass))
     if loops == 1:
         return 1.0
@@ -276,14 +282,14 @@ def _fas6to5os(api: Scalar, mass: float, mu: float, nlq: float, loops: int) -> S
     return total
 
 
-def DecAsDownOS(alphas: Scalar, massth: float, muth: float, nf: int, loops: int) -> Scalar:
+def DecAsDownOS(alphas: Scalar, massth: Scalar, muth: Scalar, nf: int, loops: int) -> Scalar:
     if not 1 <= loops <= 5:
         raise ValueError(f"DecAsDownOS: loops must be 1..5, got {loops}")
     api = alphas / _PI
     return alphas * _fas5to6os(api, massth, muth, float(nf), loops)
 
 
-def DecAsUpOS(alphas: Scalar, massth: float, muth: float, nf: int, loops: int) -> Scalar:
+def DecAsUpOS(alphas: Scalar, massth: Scalar, muth: Scalar, nf: int, loops: int) -> Scalar:
     if not 1 <= loops <= 5:
         raise ValueError(f"DecAsUpOS: loops must be 1..5, got {loops}")
     api = alphas / _PI
@@ -513,8 +519,8 @@ def AlphasLam(lam: float, mu: float, nf: int, loops: int) -> jax.Array:
 
 def AlphasExact(
     alphas0: Scalar,
-    mu0: float,
-    mu: float,
+    mu0: Scalar,
+    mu: Scalar,
     nf: int,
     loops: int,
 ) -> jax.Array:
@@ -558,43 +564,38 @@ def AlphasExact(
     """
     if not 1 <= loops <= 5:
         raise ValueError(f"AlphasExact: loops must be 1..5, got {loops}")
-    if mu0 == mu:
-        return jnp.asarray(alphas0)
 
-    b0 = beta0(nf)
-    b1 = beta1(nf)
-    b2 = beta2(nf)
-    b3 = beta3(nf)
-    b4 = beta4(nf)
-
-    # RHS of  d(api)/d(t)  with  t = log(μ²)
     # Selecting terms by loop order here (Python int, not traced) is safe
     # under jax.jit with static nf/loops.
-    if loops == 1:
-
-        def _rhs(t: jax.Array, api: jax.Array, args: object) -> jax.Array:
-            return -(api**2) * b0
-    elif loops == 2:
-
-        def _rhs(t: jax.Array, api: jax.Array, args: object) -> jax.Array:
-            return -(api**2) * (b0 + b1 * api)
-    elif loops == 3:
-
-        def _rhs(t: jax.Array, api: jax.Array, args: object) -> jax.Array:
-            return -(api**2) * (b0 + b1 * api + b2 * api**2)
-    elif loops == 4:
-
-        def _rhs(t: jax.Array, api: jax.Array, args: object) -> jax.Array:
-            return -(api**2) * (b0 + b1 * api + b2 * api**2 + b3 * api**3)
-    else:  # loops == 5
-
-        def _rhs(t: jax.Array, api: jax.Array, args: object) -> jax.Array:
-            return -(api**2) * (b0 + b1 * api + b2 * api**2 + b3 * api**3 + b4 * api**4)
+    betas = (beta0(nf), beta1(nf), beta2(nf), beta3(nf), beta4(nf))[:loops]
 
     y0 = jnp.asarray(alphas0 / jnp.pi)
     t0 = jnp.log(mu0**2)
     t1 = jnp.log(mu**2)
+    return _rge_flow(betas, y0, t0, t1) * jnp.pi
+
+
+def _beta_api(betas: tuple[float, ...], api: jax.Array) -> jax.Array:
+    """RHS of  d(api)/d(t)  with  t = log(μ²):  −api² (b0 + b1·api + …)."""
+    series: Scalar = betas[0]
+    for i in range(1, len(betas)):
+        series = series + betas[i] * api**i
+    return -(api**2) * series
+
+
+@partial(jax.custom_jvp, nondiff_argnums=(0,))
+def _rge_flow(betas: tuple[float, ...], y0: jax.Array, t0: jax.Array, t1: jax.Array) -> jax.Array:
+    """
+    Solve d(api)/d(t) = β(api) from (t0, y0) to t1 with diffrax.
+
+    Derivatives are supplied analytically by `_rge_flow_jvp`, so the solver
+    itself is never differentiated: forward and reverse mode both work, and
+    t0 == t1 needs no special-casing (diffrax then takes no steps).
+    """
     dt0 = (t1 - t0) / 100.0  # initial step, sign matches integration direction
+
+    def _rhs(t: jax.Array, api: jax.Array, args: object) -> jax.Array:
+        return _beta_api(betas, api)
 
     sol = diffeqsolve(
         ODETerm(_rhs),  # type: ignore[arg-type]
@@ -611,7 +612,25 @@ def AlphasExact(
         stepsize_controller=PIDController(rtol=1e-8, atol=1e-10),
         max_steps=2_000,
     )
-    return sol.ys[-1] * jnp.pi  # type: ignore[index]
+    return sol.ys[-1]  # type: ignore[index]
+
+
+@_rge_flow.defjvp
+def _rge_flow_jvp(
+    betas: tuple[float, ...],
+    primals: tuple[jax.Array, jax.Array, jax.Array],
+    tangents: tuple[jax.Array, jax.Array, jax.Array],
+) -> tuple[jax.Array, jax.Array]:
+    # For an autonomous scalar ODE y' = β(y), the flow satisfies
+    # ∫_{y0}^{y1} dy/β(y) = t1 − t0, hence
+    #   ∂y1/∂y0 = β(y1)/β(y0),   ∂y1/∂t1 = −∂y1/∂t0 = β(y1).
+    # The tangent is linear in (dy0, dt0, dt1), so reverse mode follows by
+    # transposition and higher derivatives by nesting.
+    y0, t0, t1 = primals
+    dy0, dt0, dt1 = tangents
+    y1 = _rge_flow(betas, y0, t0, t1)
+    dy1 = _beta_api(betas, y1) * (dy0 / _beta_api(betas, y0) + dt1 - dt0)
+    return y1, dy1
 
 
 # ---------------------------------------------------------------------------
@@ -627,9 +646,9 @@ def _check_consecutive_nfs(nfs: Sequence[int], direction: int) -> None:
 
 def AlL2AlH(
     alphas_low: float,
-    mu1: float,
+    mu1: Scalar,
     decpar: Iterable[object],
-    mu2: float,
+    mu2: Scalar,
     loops: int,
 ) -> jax.Array:
     """
@@ -649,7 +668,7 @@ def AlL2AlH(
     _check_consecutive_nfs([d.nf for d in entries], direction=1)
 
     asini: Scalar = alphas_low
-    muini = mu1
+    muini: Scalar = mu1
     for dec in entries:
         as_at_muth = AlphasExact(asini, muini, dec.muth, nf=dec.nf - 1, loops=loops)
         asini = DecAsUpOS(as_at_muth, dec.Mth, dec.muth, nf=dec.nf - 1, loops=loops)
@@ -660,9 +679,9 @@ def AlL2AlH(
 
 def AlH2AlL(
     alphas_high: float,
-    mu1: float,
+    mu1: Scalar,
     decpar: Iterable[object],
-    mu2: float,
+    mu2: Scalar,
     loops: int,
 ) -> jax.Array:
     """
@@ -682,7 +701,7 @@ def AlH2AlL(
     _check_consecutive_nfs([d.nf for d in entries], direction=-1)
 
     asini: Scalar = alphas_high
-    muini = mu1
+    muini: Scalar = mu1
     for dec in entries:
         as_at_muth = AlphasExact(asini, muini, dec.muth, nf=dec.nf, loops=loops)
         asini = DecAsDownOS(as_at_muth, dec.Mth, dec.muth, nf=dec.nf - 1, loops=loops)

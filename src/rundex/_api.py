@@ -39,7 +39,7 @@ def _freeze_decpar(decpar: Iterable[object]) -> tuple[Decoupling, ...]:
     return tuple(_acore._normalize_decpar(decpar))
 
 
-def _freeze_mq(mq: object) -> tuple[tuple[float, float], ...]:
+def _freeze_mq(mq: object) -> tuple[tuple[Scalar, Scalar], ...]:
     return tuple(_mcore._normalize_mq(mq))
 
 

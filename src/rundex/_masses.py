@@ -26,6 +26,7 @@ from ._alphas import (
     AlphasExact,
     DecAsDownOS,
     DecAsUpOS,
+    _as_scalar,
     _check_consecutive_nfs,
     _normalize_decpar,
 )
@@ -65,7 +66,7 @@ def _polylog2(x: Scalar) -> jax.Array:
     return spence(1.0 - x_arr)
 
 
-def _normalize_mq(mq: object) -> list[tuple[float, float]]:
+def _normalize_mq(mq: object) -> list[tuple[Scalar, Scalar]]:
     if mq is None:
         return []
     if not isinstance(mq, Iterable):
@@ -75,14 +76,14 @@ def _normalize_mq(mq: object) -> list[tuple[float, float]]:
         if item is None:
             continue
         if hasattr(item, "first") and hasattr(item, "second"):
-            out.append((float(item.first), float(item.second)))
+            out.append((_as_scalar(item.first), _as_scalar(item.second)))
         else:
             if not isinstance(item, Iterable):
                 raise ValueError("mq entries must be iterable (mass, scale)")
             pair = list(item)
             if len(pair) != 2:
                 raise ValueError("mq entries must be (mass, scale)")
-            out.append((float(pair[0]), float(pair[1])))
+            out.append((_as_scalar(pair[0]), _as_scalar(pair[1])))
         if len(out) >= 4:
             break
     return out
@@ -140,12 +141,12 @@ def _fsetcx(x: Scalar, loops: int, nf: int) -> Scalar:
     return (x**c0) * erg
 
 
-def _fMsFromOs1(mu: float, m_os: float) -> Scalar:
+def _fMsFromOs1(mu: Scalar, m_os: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_os * m_os))
     return -_CF - (3.0 * _CF * lmM) / 4.0
 
 
-def _fMsFromOs2(mu: float, m_os: float, nl: float) -> Scalar:
+def _fMsFromOs2(mu: Scalar, m_os: float, nl: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_os * m_os))
     return (
         (-1111.0 * _CA * _CF) / 384.0
@@ -171,7 +172,7 @@ def _fMsFromOs2(mu: float, m_os: float, nl: float) -> Scalar:
     )
 
 
-def _fMsFromOs3(mu: float, m_os: float, nl: float) -> Scalar:
+def _fMsFromOs3(mu: Scalar, m_os: float, nl: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_os * m_os))
     return (
         (
@@ -273,7 +274,7 @@ def _fZmM(nl: float) -> Scalar:
     )
 
 
-def _fMsFromOs4(mu: float, m_os: float, nl: float, err: float) -> Scalar:
+def _fMsFromOs4(mu: Scalar, m_os: float, nl: float, err: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_os * m_os))
     return (
         -3654.15040757339 * err
@@ -411,12 +412,12 @@ def _fMumFromOs4(nl: float, fdelm: float) -> Scalar:
     )
 
 
-def _fOsFromMs1(mu: float, m_ms: float) -> Scalar:
+def _fOsFromMs1(mu: Scalar, m_ms: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_ms * m_ms))
     return _CF + (3.0 * _CF * lmM) / 4.0
 
 
-def _fOsFromMs2(mu: float, m_ms: float, nl: float) -> Scalar:
+def _fOsFromMs2(mu: Scalar, m_ms: float, nl: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_ms * m_ms))
     return (
         (1111.0 * _CA * _CF) / 384.0
@@ -449,7 +450,7 @@ def _fOsFromMs2(mu: float, m_ms: float, nl: float) -> Scalar:
     )
 
 
-def _fOsFromMs3(mu: float, m_ms: float, nl: float) -> Scalar:
+def _fOsFromMs3(mu: Scalar, m_ms: float, nl: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_ms * m_ms))
     return (
         lmM**3
@@ -519,7 +520,7 @@ def _fOsFromMs3(mu: float, m_ms: float, nl: float) -> Scalar:
     )
 
 
-def _fOsFromMs4(mu: float, m_ms: float, nl: float, err: float) -> Scalar:
+def _fOsFromMs4(mu: Scalar, m_ms: float, nl: float, err: float) -> Scalar:
     lmM = jnp.log((mu * mu) / (m_ms * m_ms))
     return (
         3567.602784989066 * err
@@ -557,7 +558,9 @@ def _fOsFromMs4(mu: float, m_ms: float, nl: float, err: float) -> Scalar:
     )
 
 
-def _deltamOS2mMS(m_os: float, mq: object, asmu: Scalar, mu: float, nlq: int, loops: int) -> Scalar:
+def _deltamOS2mMS(
+    m_os: float, mq: object, asmu: Scalar, mu: Scalar, nlq: int, loops: int
+) -> Scalar:
     mq_list = _normalize_mq(mq)
     if not mq_list:
         return 0.0
@@ -624,7 +627,9 @@ def _deltamOS2mMS(m_os: float, mq: object, asmu: Scalar, mu: float, nlq: int, lo
     return erg
 
 
-def _deltamMS2mOS(m_ms: float, mq: object, asmu: Scalar, mu: float, nlq: int, loops: int) -> Scalar:
+def _deltamMS2mOS(
+    m_ms: float, mq: object, asmu: Scalar, mu: Scalar, nlq: int, loops: int
+) -> Scalar:
     mq_list = _normalize_mq(mq)
     if not mq_list:
         return 0.0
@@ -713,7 +718,7 @@ def _deltamMS2mOS(m_ms: float, mq: object, asmu: Scalar, mu: float, nlq: int, lo
     return erg
 
 
-def _fmq6to5os(api: Scalar, mass: float, mu: float, nlq: float, loops: int) -> Scalar:
+def _fmq6to5os(api: Scalar, mass: Scalar, mu: Scalar, nlq: float, loops: int) -> Scalar:
     lmM = jnp.log((mu * mu) / (mass * mass))
     if loops == 1:
         return 1.0
@@ -817,7 +822,7 @@ def _fmq6to5os(api: Scalar, mass: float, mu: float, nlq: float, loops: int) -> S
     return total
 
 
-def _fmq5to6os(api: Scalar, mass: float, mu: float, nlq: float, loops: int) -> Scalar:
+def _fmq5to6os(api: Scalar, mass: Scalar, mu: Scalar, nlq: float, loops: int) -> Scalar:
     lmM = jnp.log((mu * mu) / (mass * mass))
     if loops == 1:
         return 1.0
@@ -907,7 +912,7 @@ def _fmq5to6os(api: Scalar, mass: float, mu: float, nlq: float, loops: int) -> S
 
 
 def DecMqUpOS(
-    mq: Scalar, alphas: Scalar, massth: float, muth: float, nf: int, loops: int
+    mq: Scalar, alphas: Scalar, massth: Scalar, muth: Scalar, nf: int, loops: int
 ) -> Scalar:
     if not 1 <= loops <= 5:
         raise ValueError(f"DecMqUpOS: loops must be 1..5, got {loops}")
@@ -916,7 +921,7 @@ def DecMqUpOS(
 
 
 def DecMqDownOS(
-    mq: Scalar, alphas: Scalar, massth: float, muth: float, nf: int, loops: int
+    mq: Scalar, alphas: Scalar, massth: Scalar, muth: Scalar, nf: int, loops: int
 ) -> Scalar:
     if not 1 <= loops <= 5:
         raise ValueError(f"DecMqDownOS: loops must be 1..5, got {loops}")
@@ -955,9 +960,9 @@ def mMS2mMS(mmu0: Scalar, alphas0: Scalar, alphas1: Scalar, nf: int, loops: int)
 def mL2mH(
     mql: float,
     alphas_low: float,
-    mu1: float,
+    mu1: Scalar,
     decpar: Iterable[object],
-    mu2: float,
+    mu2: Scalar,
     loops: int,
 ) -> Scalar:
     """Run MS-bar mass from low to high scale with decoupling at thresholds."""
@@ -972,7 +977,7 @@ def mL2mH(
     _check_consecutive_nfs([d.nf for d in entries], direction=1)
 
     asini: Scalar = alphas_low
-    muini = mu1
+    muini: Scalar = mu1
     mqini: Scalar = mql
     for dec in entries:
         as_at_muth = AlphasExact(asini, muini, dec.muth, nf=dec.nf - 1, loops=loops)
@@ -988,9 +993,9 @@ def mL2mH(
 def mH2mL(
     mqh: float,
     alphas_high: float,
-    mu1: float,
+    mu1: Scalar,
     decpar: Iterable[object],
-    mu2: float,
+    mu2: Scalar,
     loops: int,
 ) -> Scalar:
     """Run MS-bar mass from high to low scale with decoupling at thresholds."""
@@ -1005,7 +1010,7 @@ def mH2mL(
     _check_consecutive_nfs([d.nf for d in entries], direction=-1)
 
     asini: Scalar = alphas_high
-    muini = mu1
+    muini: Scalar = mu1
     mqini: Scalar = mqh
     for dec in entries:
         as_at_muth = AlphasExact(asini, muini, dec.muth, nf=dec.nf, loops=loops)
@@ -1022,7 +1027,7 @@ def mOS2mMS(
     m_os: float,
     mq: object,
     alphas: Scalar,
-    mu: float,
+    mu: Scalar,
     nf: int,
     loops: int,
     fdelm: float = 1.0,
@@ -1112,7 +1117,7 @@ def mMS2mOS(
     m_ms: float,
     mq: object,
     alphas: Scalar,
-    mu: float,
+    mu: Scalar,
     nf: int,
     loops: int,
     fdelm: float = 1.0,
@@ -1144,7 +1149,7 @@ def mMS2m1S(
     m_ms: float,
     mq: object,
     alphas: Scalar,
-    mu: float,
+    mu: Scalar,
     nl: int,
     loops: int,
     fdelm: float = 1.0,
