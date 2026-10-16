@@ -19,12 +19,13 @@ Requires Python ≥ 3.10, JAX ≥ 0.4, and [diffrax](https://github.com/patrick-
 
 ```python
 import jax
+
 jax.config.update("jax_enable_x64", True)  # required for physics-level precision
 
 from rundex import AlphasExact, AlphasLam, LamExpl, LamImpl
 
 # Λ_MS^(5) from αs(MZ)
-lam = LamExpl(0.118, 91.18, nf=5, loops=5)   # → 0.2086 GeV
+lam = LamExpl(0.118, 91.18, nf=5, loops=5)  # → 0.2086 GeV
 
 # αs(μ) from Λ (analytic expansion)
 als = AlphasLam(lam, mu=1000.0, nf=5, loops=5)
@@ -34,6 +35,7 @@ als = AlphasExact(0.118, mu0=91.18, mu=1000.0, nf=5, loops=5)
 
 # Optional: compile once for fixed (nf, loops) to avoid retracing
 from rundex import compiled_AlphasExact
+
 alphas_exact_5l_nf5 = compiled_AlphasExact(nf=5, loops=5)
 als_fast = alphas_exact_5l_nf5(0.118, 91.18, 1000.0)
 ```
